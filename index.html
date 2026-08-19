@@ -2,244 +2,1704 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tournament Bracket & Standings Generator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="BracketForge — Multi-Category Tournament & Bracket Generator with Live Preview, Custom Groupings, and Zoom.">
+  <title>BracketForge — Multi-Category Tournament Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
+    /* ===== Design System ===== */
     :root {
-      --bg-main: #181a1f;
-      --bg-panel: #21252b;
-      --bg-card: #282c34;
-      --border-color: #3b4048;
-      --text-main: #abb2bf;
-      --text-white: #ffffff;
-      --accent: #0088cc;
-      --win-color: #98c379;
-      --loss-color: #e06c75;
+      --bg-body: #0d0f12;
+      --bg-topbar: #161920;
+      --bg-tabs: #12141a;
+      --bg-sidebar: #161920;
+      --bg-card: #20242d;
+      --bg-card-hover: #272c38;
+      --bg-input: #121419;
+      --bg-input-focus: #1a1e26;
+      --border: #282d37;
+      --border-light: #343b48;
+      --border-focus: #3b82f6;
+      --text: #9ca3af;
+      --text-white: #e5e7eb;
+      --text-bright: #ffffff;
+      --text-dim: #555d6d;
+      --accent: #3b82f6;
+      --accent-hover: #60a5fa;
+      --accent-dim: rgba(59, 130, 246, 0.15);
+      --green: #22c55e;
+      --green-dim: rgba(34, 197, 94, 0.15);
+      --green-border: rgba(34, 197, 94, 0.4);
+      --orange: #f59e0b;
+      --orange-dim: rgba(245, 158, 11, 0.15);
+      --red: #ef4444;
+      --red-dim: rgba(239, 68, 68, 0.15);
+      --purple: #8b5cf6;
+      --purple-dim: rgba(139, 92, 246, 0.15);
+      --cyan: #06b6d4;
+      --win: #22c55e;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --radius-sm: 4px;
+      --radius: 6px;
+      --radius-lg: 10px;
+      --sidebar-w: 320px;
+      --iconbar-w: 48px;
+      --topbar-h: 46px;
+      --catbar-h: 36px;
+      --transition: 0.2s ease;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: var(--bg-main); color: var(--text-main); padding: 20px; }
-    
-    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; }
-    h1 { color: var(--text-white); font-size: 24px; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: var(--font); background: var(--bg-body); color: var(--text); font-size: 13px; }
 
-    .bracket-container { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-    .bracket-panel { background: var(--bg-panel); border-radius: 8px; padding: 20px; border: 1px solid var(--border-color); }
-    .bracket-title { color: var(--text-white); font-size: 18px; margin-bottom: 15px; display: flex; justify-content: space-between; }
+    /* ===== App Shell ===== */
+    .app { display: flex; flex-direction: column; height: 100vh; }
 
-    /* Match Grid Styles */
-    .round-container { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
-    .round-title { font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 5px; }
-    .matchups-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
-
-    .match-box {
+    /* --- Top Bar --- */
+    .topbar {
+      height: var(--topbar-h);
+      background: var(--bg-topbar);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 16px;
+      z-index: 100;
+      flex-shrink: 0;
+    }
+    .brand {
+      font-size: 16px;
+      font-weight: 900;
+      color: var(--text-bright);
+      letter-spacing: -0.5px;
+    }
+    .brand span { color: var(--accent); }
+    .topbar-divider { width: 1px; height: 20px; background: var(--border); }
+    .topbar-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-bright);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .topbar-actions { display: flex; gap: 8px; align-items: center; }
+    .btn-action {
+      padding: 6px 14px;
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
       background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 8px 12px;
+      color: var(--text-white);
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-action:hover { background: var(--bg-card-hover); border-color: var(--border-light); }
+    .btn-action.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn-action.primary:hover { background: var(--accent-hover); }
+
+    /* --- Category Tabs Bar --- */
+    .catbar {
+      height: var(--catbar-h);
+      background: var(--bg-tabs);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      gap: 4px;
+      overflow-x: auto;
+      flex-shrink: 0;
+    }
+    .catbar::-webkit-scrollbar { height: 2px; }
+    .catbar::-webkit-scrollbar-thumb { background: var(--border); }
+    .cat-tab {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+      background: transparent;
+      border: 1px solid transparent;
+      cursor: pointer;
+      user-select: none;
+      transition: var(--transition);
+      white-space: nowrap;
+    }
+    .cat-tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+    .cat-tab.active {
+      color: var(--text-bright);
+      background: var(--bg-sidebar);
+      border-color: var(--border);
+    }
+    .cat-tab .tab-badge {
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 10px;
+      background: var(--border);
+      color: var(--text);
+    }
+    .cat-tab.active .tab-badge { background: var(--accent); color: #fff; }
+    .cat-tab .tab-close {
+      font-size: 12px;
+      color: var(--text-dim);
+      border-radius: 3px;
+      padding: 0 3px;
+    }
+    .cat-tab .tab-close:hover { color: var(--red); background: var(--red-dim); }
+
+    .btn-add-cat {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      height: 26px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      background: var(--accent-dim);
+      border: 1px dashed rgba(59, 130, 246, 0.4);
+      cursor: pointer;
+      transition: var(--transition);
+      white-space: nowrap;
+    }
+    .btn-add-cat:hover { background: rgba(59, 130, 246, 0.25); border-color: var(--accent); }
+
+    /* --- App Body Layout --- */
+    .app-body { display: flex; flex: 1; overflow: hidden; }
+
+    /* --- Navigation Icon Bar --- */
+    .icon-sidebar {
+      width: var(--iconbar-w);
+      background: var(--bg-topbar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 0;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .icon-btn {
+      width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: var(--radius);
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 16px;
+      transition: var(--transition);
+      border: none;
+      background: none;
+      position: relative;
+    }
+    .icon-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+    .icon-btn.active { color: var(--accent); background: var(--accent-dim); }
+    .icon-btn.active::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 6px; bottom: 6px;
+      width: 3px;
+      background: var(--accent);
+      border-radius: 0 2px 2px 0;
+    }
+
+    /* --- Sidebar Panel --- */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .sidebar-section {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .field { margin-bottom: 12px; }
+    .field:last-child { margin-bottom: 0; }
+    .field-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin-bottom: 5px;
+    }
+    .field-input, .field-select, .field-textarea {
+      width: 100%;
+      padding: 8px 10px;
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-white);
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      outline: none;
+      transition: var(--transition);
+    }
+    .field-input:focus, .field-select:focus, .field-textarea:focus {
+      border-color: var(--border-focus);
+      background: var(--bg-input-focus);
+    }
+    .field-select {
+      appearance: none;
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23555d6d'%3E%3Cpath d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
+    .field-select option { background: var(--bg-card); color: var(--text-white); }
+    .field-textarea { resize: vertical; min-height: 50px; }
+
+    /* Participants Group Section (BracketHQ style) */
+    .group-block {
+      margin-bottom: 16px;
+    }
+    .group-block-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+    .group-block-header .btn-group-add {
+      font-size: 10px;
+      color: var(--accent);
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-weight: 600;
+    }
+    .group-block-header .btn-group-add:hover { text-decoration: underline; }
+
+    .participants-list {
       display: flex;
       flex-direction: column;
       gap: 6px;
+      max-height: 340px;
+      overflow-y: auto;
+      margin-bottom: 12px;
+      padding-right: 2px;
+    }
+    .participants-list::-webkit-scrollbar { width: 3px; }
+    .participants-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .participant-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .drag-handle {
+      color: var(--text-dim);
+      font-size: 12px;
+      cursor: grab;
+      user-select: none;
+    }
+    .participant-input {
+      flex: 1;
+      padding: 6px 10px;
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-white);
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      outline: none;
+    }
+    .participant-input:focus { border-color: var(--border-focus); }
+
+    .btn-del-p {
+      width: 22px; height: 22px;
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      border-radius: 3px;
+    }
+    .btn-del-p:hover { color: var(--red); background: var(--red-dim); }
+
+    .participant-actions-bar {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-shuffle {
+      width: 42px;
+      padding: 8px;
+      font-size: 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-shuffle:hover { background: var(--bg-card-hover); border-color: var(--accent); }
+
+    .btn-add-p {
+      flex: 1;
+      padding: 8px;
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 600;
+      color: #fff;
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .btn-add-p:hover { background: var(--accent-hover); }
+
+    /* Tournament Action Buttons */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+    .status-badge.preview { background: var(--orange-dim); border-color: rgba(245,158,11,0.3); color: var(--orange); }
+    .status-badge.active { background: var(--green-dim); border-color: var(--green-border); color: var(--green); }
+
+    .btn-start {
+      width: 100%;
+      margin-top: 12px;
+      padding: 10px;
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #fff;
+      background: var(--green);
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .btn-start:hover { filter: brightness(1.1); }
+    .btn-reset {
+      width: 100%;
+      margin-top: 8px;
+      padding: 8px;
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .btn-reset:hover { border-color: var(--border-light); color: var(--text-white); }
+
+    /* --- Main Canvas Viewport --- */
+    .main-area {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: var(--bg-body);
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .preview-bar {
+      background: rgba(245, 158, 11, 0.1);
+      border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+      padding: 6px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--orange);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
     }
 
-    .team-row { display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
-    .team-name { color: var(--text-white); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
-    .team-name.winner { color: var(--win-color); font-weight: bold; }
-    
-    .score-input {
-      width: 45px;
-      padding: 3px 6px;
-      background: #1e2227;
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      color: #fff;
-      text-align: center;
+    .bracket-viewport {
+      flex: 1;
+      overflow: auto;
+      position: relative;
     }
-    .score-input:focus { border-color: var(--accent); outline: none; }
-    .bye-label { font-size: 12px; font-style: italic; color: #5c6370; margin-top: 4px; }
+    .bracket-viewport::-webkit-scrollbar { width: 8px; height: 8px; }
+    .bracket-viewport::-webkit-scrollbar-track { background: var(--bg-body); }
+    .bracket-viewport::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .bracket-canvas {
+      min-width: 100%;
+      min-height: 100%;
+      padding: 40px;
+      transform-origin: 0 0;
+      transition: transform 0.15s ease;
+    }
+
+    /* Zoom Overlay */
+    .zoom-controls {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      background: var(--bg-topbar);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2px;
+      z-index: 50;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .zoom-btn {
+      width: 28px; height: 26px;
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: none;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 13px;
+      border-radius: 4px;
+      font-family: var(--font);
+    }
+    .zoom-btn:hover { background: var(--bg-card); color: var(--text-bright); }
+    .zoom-lbl {
+      padding: 0 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text);
+      min-width: 44px;
+      text-align: center;
+      user-select: none;
+    }
+
+    /* ===== Bracket Rendering Elements ===== */
+
+    /* Tree Bracket */
+    .elim-bracket {
+      display: flex;
+      gap: 0;
+      align-items: stretch;
+    }
+    .elim-round {
+      display: flex;
+      flex-direction: column;
+      min-width: 210px;
+    }
+    .elim-round-label {
+      text-align: center;
+      padding: 0 0 12px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--accent);
+    }
+    .elim-matches {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      padding: 0 8px;
+      gap: 8px;
+      position: relative;
+    }
+    .elim-round:not(:last-child) .elim-matches::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 10%;
+      bottom: 10%;
+      width: 1px;
+      background: var(--border);
+    }
+
+    .match-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: var(--transition);
+      min-width: 190px;
+    }
+    .match-card:hover { border-color: var(--border-light); }
+    .match-slot {
+      display: flex;
+      align-items: center;
+      padding: 6px 10px;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .match-slot:last-child { border-bottom: none; }
+    .match-slot.is-winner { background: var(--green-dim); }
+    .match-slot .name {
+      flex: 1;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .match-slot.is-winner .name { color: var(--win); }
+    .match-slot .tbd {
+      flex: 1;
+      font-size: 11px;
+      font-style: italic;
+      color: var(--text-dim);
+    }
+    .match-slot .score-inp {
+      width: 36px;
+      padding: 3px 4px;
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-white);
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      text-align: center;
+      outline: none;
+    }
+    .match-slot .score-inp:focus { border-color: var(--border-focus); }
+    .match-slot .score-inp:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* Champion Banner */
+    .champion-card {
+      margin-top: 24px;
+      padding: 20px;
+      text-align: center;
+      background: linear-gradient(135deg, rgba(34,197,94,0.08), rgba(59,130,246,0.06));
+      border: 1px solid rgba(34,197,94,0.25);
+      border-radius: var(--radius-lg);
+    }
+    .champion-card.hidden { display: none; }
+    .champion-card .trophy { font-size: 32px; }
+    .champion-card .champ-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: var(--accent); margin: 4px 0; }
+    .champion-card .champ-name { font-size: 20px; font-weight: 800; color: var(--win); }
+
+    /* Round Robin Layout */
+    .rr-layout { display: grid; gap: 20px; }
+    .rr-layout.multi { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+    .rr-pool-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .rr-pool-header {
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      text-align: center;
+      color: #fff;
+    }
+    .rr-pool-header.p-a { background: #3b82f6; }
+    .rr-pool-header.p-b { background: #f59e0b; }
+    .rr-pool-header.p-c { background: #8b5cf6; }
+    .rr-pool-header.p-d { background: #06b6d4; }
+    .rr-pool-body { padding: 14px; }
+
+    .rr-round-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      margin: 12px 0 6px;
+    }
+    .rr-round-label:first-child { margin-top: 0; }
+    .rr-match-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 6px;
+    }
+    .rr-bye-label { font-size: 11px; font-style: italic; color: var(--text-dim); margin-top: 4px; }
 
     /* Standings Table */
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; text-align: left; }
-    th { background: #1e2227; color: var(--text-white); padding: 8px; font-weight: 600; }
-    td { padding: 8px; border-bottom: 1px solid var(--border-color); }
-    tr:first-child td { font-weight: bold; color: var(--win-color); }
+    .standings-wrap { margin-top: 14px; }
+    .standings-label { font-size: 10px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+    .standings-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .standings-tbl th {
+      padding: 6px 8px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-dim);
+      background: var(--bg-input); border-bottom: 1px solid var(--border);
+    }
+    .standings-tbl td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+    .standings-tbl tbody tr:first-child td { color: var(--win); font-weight: 700; }
+
+    /* Double Elimination Sections */
+    .de-section { margin-bottom: 24px; }
+    .de-label {
+      display: inline-block;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: var(--radius-sm);
+      margin-bottom: 10px;
+    }
+    .de-label.winners { background: var(--green-dim); border: 1px solid var(--green-border); color: var(--green); }
+    .de-label.losers { background: var(--red-dim); border: 1px solid rgba(239,68,68,0.3); color: var(--red); }
+    .de-label.grand { background: var(--purple-dim); border: 1px solid rgba(139,92,246,0.3); color: var(--purple); }
+
+    .btn-advance {
+      display: block;
+      margin: 20px auto;
+      padding: 10px 24px;
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      background: var(--green);
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+    }
+    .btn-advance:hover { filter: brightness(1.1); }
+    .btn-advance:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .playoff-area { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+    .playoff-title { text-align: center; font-size: 15px; font-weight: 800; color: var(--text-bright); margin-bottom: 16px; }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-4px); }
+      40% { transform: translateX(4px); }
+      60% { transform: translateX(-3px); }
+      80% { transform: translateX(3px); }
+    }
   </style>
 </head>
 <body>
 
-  <header>
-    <h1>Tournament Manager</h1>
-  </header>
-
-  <div class="bracket-container">
-    <!-- Bracket A -->
-    <section class="bracket-panel" id="group-0">
-      <div class="bracket-title">
-        <span>Bracket A</span>
+  <div class="app">
+    <!-- ===== TOP BAR ===== -->
+    <div class="topbar">
+      <div class="brand">Bracket<span>Forge</span></div>
+      <div class="topbar-divider"></div>
+      <div class="topbar-title" id="topbar-title">Tournament Generator</div>
+      <div class="topbar-actions">
+        <button class="btn-action primary" onclick="exportBracket()">💾 Save / Export</button>
       </div>
-      <div class="round-container" id="matches-0"></div>
-      <h3 style="color: #fff; font-size: 15px; margin-bottom: 8px;">Standings</h3>
-      <table id="standings-0">
-        <thead>
-          <tr><th>#</th><th>Team</th><th>W</th><th>L</th><th>Diff</th><th>Pts</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </section>
+    </div>
 
-    <!-- Bracket B -->
-    <section class="bracket-panel" id="group-1">
-      <div class="bracket-title">
-        <span>Bracket B</span>
+    <!-- ===== CATEGORIES BAR ===== -->
+    <div class="catbar" id="catbar">
+      <div id="cat-tabs-list" style="display:flex; gap:4px;"></div>
+      <button class="btn-add-cat" onclick="addCategory()">+ New Category</button>
+    </div>
+
+    <div class="app-body">
+      <!-- ===== NAVIGATION ICON BAR ===== -->
+      <div class="icon-sidebar">
+        <button class="icon-btn active" id="tab-info" onclick="switchSidebarTab('info')" title="Bracket Settings">⚙</button>
+        <button class="icon-btn" id="tab-teams" onclick="switchSidebarTab('teams')" title="Participants & Groupings">👥</button>
       </div>
-      <div class="round-container" id="matches-1"></div>
-      <h3 style="color: #fff; font-size: 15px; margin-bottom: 8px;">Standings</h3>
-      <table id="standings-1">
-        <thead>
-          <tr><th>#</th><th>Team</th><th>W</th><th>L</th><th>Diff</th><th>Pts</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </section>
+
+      <!-- ===== MAIN SIDEBAR ===== -->
+      <div class="sidebar">
+        <!-- Settings Panel -->
+        <div id="panel-info">
+          <div class="sidebar-section">
+            <div class="sidebar-section-title">Category Information</div>
+
+            <div class="field">
+              <label class="field-label">Category Name</label>
+              <input type="text" class="field-input" id="inp-name" placeholder="e.g. Men's Basketball" oninput="onSettingsChange()">
+            </div>
+
+            <div class="field">
+              <label class="field-label">Sport / Game</label>
+              <input type="text" class="field-input" id="inp-sport" placeholder="e.g. Basketball, Badminton..." oninput="onSettingsChange()">
+            </div>
+
+            <div class="field">
+              <label class="field-label">Bracket Format</label>
+              <select class="field-select" id="inp-type" onchange="onFormatChange()">
+                <option value="single_elim">Single Elimination</option>
+                <option value="double_elim">Double Elimination</option>
+                <option value="round_robin">Round Robin (Single Pool)</option>
+                <option value="round_robin_double">Round Robin (2 Pools)</option>
+                <option value="group_stage">Group Stage + Knockout</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label class="field-label">Description</label>
+              <textarea class="field-textarea" id="inp-desc" placeholder="Optional notes, rules, or details..." oninput="onSettingsChange()"></textarea>
+            </div>
+          </div>
+
+          <div class="sidebar-section">
+            <div class="sidebar-section-title">Tournament Status</div>
+            <div id="status-badge" class="status-badge preview">🔍 Live Preview</div>
+
+            <button class="btn-start" id="btn-start" onclick="startTournament()">🏆 Start Tournament</button>
+            <button class="btn-reset" id="btn-reset" onclick="resetTournament()" style="display:none;">↩ Edit Setup</button>
+          </div>
+        </div>
+
+        <!-- Participants Panel -->
+        <div id="panel-teams" style="display:none;">
+          <div class="sidebar-section">
+            <div class="sidebar-section-title">
+              Participants <span id="participant-count" style="color:var(--accent);">(0)</span>
+            </div>
+
+            <div class="participants-list" id="participants-list"></div>
+
+            <div class="participant-actions-bar" id="participant-actions">
+              <button class="btn-shuffle" onclick="shuffleTeams()" title="Shuffle / Randomize Groups">🔀</button>
+              <button class="btn-add-p" id="btn-add-p" onclick="addParticipant()">+ Add Participant</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== MAIN CANVAS VIEWPORT ===== -->
+      <div class="main-area">
+        <div class="preview-bar" id="preview-bar">
+          <span>🔍 <strong>LIVE PREVIEW MODE</strong> — Adjust settings in sidebar. Click <strong>"Start Tournament"</strong> to lock setup and enter scores.</span>
+        </div>
+
+        <div class="bracket-viewport" id="bracket-viewport">
+          <div class="bracket-canvas" id="bracket-canvas"></div>
+        </div>
+
+        <!-- Zoom Controls -->
+        <div class="zoom-controls">
+          <button class="zoom-btn" onclick="zoomOut()" title="Zoom Out">−</button>
+          <div class="zoom-lbl" id="zoom-lbl">100%</div>
+          <button class="zoom-btn" onclick="zoomIn()" title="Zoom In">+</button>
+          <button class="zoom-btn" onclick="zoomFit()" title="Reset Zoom">⛶</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
-    const groups = [
-      { id: 0, name: "Bracket A", teams: ["Team A1", "Team A2", "Team A3", "Team A4", "Team A5"] },
-      { id: 1, name: "Bracket B", teams: ["Team B1", "Team B2", "Team B3", "Team B4", "Team B5"] }
-    ];
+    /* ================================================================
+       MULTI-CATEGORY STATE MANAGEMENT
+       ================================================================ */
+    let categories = [];
+    let activeCatId = null;
 
-    let matchData = {};
+    function createCategoryState(name, type = 'single_elim') {
+      return {
+        id: 'cat_' + Date.now() + '_' + Math.floor(Math.random()*1000),
+        name: name || 'Category ' + (categories.length + 1),
+        sport: '',
+        type: type,
+        desc: '',
+        // For single list formats: array of team names strings
+        // For multi-group formats: array of group objects: [ { id: 'A', name: 'Group A', teams: [...] }, { id: 'B', name: 'Group B', teams: [...] } ]
+        groups: [
+          { id: 'A', name: 'Group A', teams: ['Team 1', 'Team 2', 'Team 3', 'Team 4'] },
+          { id: 'B', name: 'Group B', teams: ['Team 5', 'Team 6', 'Team 7', 'Team 8'] }
+        ],
+        flatTeams: ['Team 1', 'Team 2', 'Team 3', 'Team 4'],
+        started: false,
+        zoom: 1,
+        // runtime
+        matches: {},
+        elimBracket: null,
+        doubleElim: null,
+        groupStage: null,
+      };
+    }
 
-    // Standard Polygon-Round-Robin generator (handles Byes automatically for odd teams)
-    function generateRoundRobin(teams) {
-      const list = [...teams];
-      const hasBye = list.length % 2 !== 0;
-      if (hasBye) list.push("BYE");
+    function getActiveCat() {
+      return categories.find(c => c.id === activeCatId);
+    }
 
-      const rounds = [];
-      const n = list.length;
-      for (let r = 0; r < n - 1; r++) {
-        const round = { roundNum: r + 1, matches: [], bye: null };
-        for (let i = 0; i < n / 2; i++) {
-          const t1 = list[i];
-          const t2 = list[n - 1 - i];
-          if (t1 === "BYE") round.bye = t2;
-          else if (t2 === "BYE") round.bye = t1;
-          else round.matches.push({ team1: t1, team2: t2 });
+    function isMultiGroupFormat(type) {
+      return type === 'round_robin_double' || type === 'group_stage';
+    }
+
+    /* ================================================================
+       INIT & CATEGORY TABS UI
+       ================================================================ */
+    function initApp() {
+      const initialCat = createCategoryState('Category 1', 'single_elim');
+      categories.push(initialCat);
+      activeCatId = initialCat.id;
+      renderCatTabs();
+      loadCatToSidebar();
+      renderLivePreview();
+    }
+
+    function renderCatTabs() {
+      const container = document.getElementById('cat-tabs-list');
+      container.innerHTML = categories.map(cat => `
+        <div class="cat-tab ${cat.id === activeCatId ? 'active' : ''}" onclick="switchCategory('${cat.id}')">
+          <span>${escHTML(cat.name)}</span>
+          <span class="tab-badge">${cat.started ? 'Active' : 'Draft'}</span>
+          ${categories.length > 1 ? `<span class="tab-close" onclick="event.stopPropagation(); deleteCategory('${cat.id}')">✕</span>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function addCategory() {
+      const newCat = createCategoryState(`Category ${categories.length + 1}`);
+      categories.push(newCat);
+      switchCategory(newCat.id);
+    }
+
+    function switchCategory(catId) {
+      activeCatId = catId;
+      renderCatTabs();
+      loadCatToSidebar();
+      renderLivePreview();
+    }
+
+    function deleteCategory(catId) {
+      if (categories.length <= 1) return;
+      categories = categories.filter(c => c.id !== catId);
+      if (activeCatId === catId) activeCatId = categories[0].id;
+      renderCatTabs();
+      loadCatToSidebar();
+      renderLivePreview();
+    }
+
+    /* ================================================================
+       SIDEBAR SYNC
+       ================================================================ */
+    function loadCatToSidebar() {
+      const cat = getActiveCat();
+      if (!cat) return;
+
+      document.getElementById('inp-name').value = cat.name;
+      document.getElementById('inp-sport').value = cat.sport;
+      document.getElementById('inp-type').value = cat.type;
+      document.getElementById('inp-desc').value = cat.desc;
+
+      document.getElementById('topbar-title').textContent = cat.name + (cat.sport ? ` — ${cat.sport}` : '');
+
+      const started = cat.started;
+      document.getElementById('inp-name').disabled = started;
+      document.getElementById('inp-sport').disabled = started;
+      document.getElementById('inp-type').disabled = started;
+      document.getElementById('inp-desc').disabled = started;
+
+      const badge = document.getElementById('status-badge');
+      if (started) {
+        badge.textContent = '🏆 Tournament Active';
+        badge.className = 'status-badge active';
+        document.getElementById('btn-start').style.display = 'none';
+        document.getElementById('btn-reset').style.display = 'block';
+        document.getElementById('preview-bar').style.display = 'none';
+        document.getElementById('participant-actions').style.display = 'none';
+      } else {
+        badge.textContent = '🔍 Live Preview';
+        badge.className = 'status-badge preview';
+        document.getElementById('btn-start').style.display = 'block';
+        document.getElementById('btn-reset').style.display = 'none';
+        document.getElementById('preview-bar').style.display = 'flex';
+        document.getElementById('participant-actions').style.display = 'flex';
+      }
+
+      renderParticipantsList();
+      applyZoom(cat.zoom);
+    }
+
+    function switchSidebarTab(tab) {
+      document.getElementById('panel-info').style.display = tab === 'info' ? 'block' : 'none';
+      document.getElementById('panel-teams').style.display = tab === 'teams' ? 'block' : 'none';
+      document.querySelectorAll('.icon-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(`tab-${tab}`).classList.add('active');
+    }
+
+    function onSettingsChange() {
+      const cat = getActiveCat();
+      if (!cat || cat.started) return;
+
+      cat.name = document.getElementById('inp-name').value || 'Untitled Category';
+      cat.sport = document.getElementById('inp-sport').value;
+      cat.desc = document.getElementById('inp-desc').value;
+
+      document.getElementById('topbar-title').textContent = cat.name + (cat.sport ? ` — ${cat.sport}` : '');
+      renderCatTabs();
+      renderLivePreview();
+    }
+
+    function onFormatChange() {
+      const cat = getActiveCat();
+      if (!cat || cat.started) return;
+
+      cat.type = document.getElementById('inp-type').value;
+
+      // Reset brackets
+      cat.elimBracket = null;
+      cat.doubleElim = null;
+      cat.groupStage = null;
+
+      renderParticipantsList();
+      renderLivePreview();
+    }
+
+    /* ================================================================
+       PARTICIPANTS MANAGEMENT (DIRECT GROUPED INPUT)
+       ================================================================ */
+    function addParticipant(grpIdx = null) {
+      const cat = getActiveCat();
+      if (!cat || cat.started) return;
+
+      if (isMultiGroupFormat(cat.type)) {
+        const targetGroupIdx = grpIdx !== null ? grpIdx : cat.groups.length - 1;
+        const group = cat.groups[targetGroupIdx];
+        const totalCount = getTotalTeamCount(cat);
+        group.teams.push(`Team ${totalCount + 1}`);
+      } else {
+        cat.flatTeams.push(`Team ${cat.flatTeams.length + 1}`);
+      }
+
+      renderParticipantsList();
+      renderLivePreview();
+    }
+
+    function addGroup() {
+      const cat = getActiveCat();
+      if (!cat || cat.started) return;
+
+      const groupLetter = String.fromCharCode(65 + cat.groups.length);
+      cat.groups.push({
+        id: groupLetter,
+        name: `Group ${groupLetter}`,
+        teams: [`Team ${getTotalTeamCount(cat) + 1}`, `Team ${getTotalTeamCount(cat) + 2}`]
+      });
+
+      renderParticipantsList();
+      renderLivePreview();
+    }
+
+    function removeParticipant(gIdx, tIdx) {
+      const cat = getActiveCat();
+      if (!cat || cat.started) return;
+
+      if (isMultiGroupFormat(cat.type)) {
+        cat.groups[gIdx].teams.splice(tIdx, 1);
+      } else {
+        cat.flatTeams.splice(tIdx, 1);
+      }
+
+      renderParticipantsList();
+      renderLivePreview();
+    }
+
+    function updateTeamName(gIdx, tIdx, name) {
+      const cat = getActiveCat();
+      if (!cat || cat.started) return;
+
+      if (isMultiGroupFormat(cat.type)) {
+        cat.groups[gIdx].teams[tIdx] = name || `Team ${tIdx + 1}`;
+      } else {
+        cat.flatTeams[tIdx] = name || `Team ${tIdx + 1}`;
+      }
+
+      renderLivePreview();
+    }
+
+    function shuffleTeams() {
+      const cat = getActiveCat();
+      if (!cat || cat.started) return;
+
+      if (isMultiGroupFormat(cat.type)) {
+        // Collect all teams and shuffle
+        let all = [];
+        cat.groups.forEach(g => all.push(...g.teams));
+
+        // Fisher-Yates shuffle
+        for (let i = all.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [all[i], all[j]] = [all[j], all[i]];
         }
-        list.splice(1, 0, list.pop()); // Rotate array
+
+        // Re-distribute evenly across groups
+        const numGroups = cat.groups.length;
+        cat.groups.forEach(g => g.teams = []);
+        all.forEach((t, i) => {
+          cat.groups[i % numGroups].teams.push(t);
+        });
+      } else {
+        for (let i = cat.flatTeams.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [cat.flatTeams[i], cat.flatTeams[j]] = [cat.flatTeams[j], cat.flatTeams[i]];
+        }
+      }
+
+      renderParticipantsList();
+      renderLivePreview();
+    }
+
+    function getTotalTeamCount(cat) {
+      if (isMultiGroupFormat(cat.type)) {
+        return cat.groups.reduce((sum, g) => sum + g.teams.length, 0);
+      }
+      return cat.flatTeams.length;
+    }
+
+    function renderParticipantsList() {
+      const cat = getActiveCat();
+      if (!cat) return;
+
+      const list = document.getElementById('participants-list');
+      const totalCount = getTotalTeamCount(cat);
+      document.getElementById('participant-count').textContent = `(${totalCount})`;
+
+      if (isMultiGroupFormat(cat.type)) {
+        // Render Group Blocks (BracketHQ style)
+        list.innerHTML = cat.groups.map((group, gIdx) => `
+          <div class="group-block">
+            <div class="group-block-header">
+              <span>${escHTML(group.name)}</span>
+              ${!cat.started ? `<button class="btn-group-add" onclick="addParticipant(${gIdx})">+ Add to ${escHTML(group.name)}</button>` : ''}
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              ${group.teams.map((teamName, tIdx) => `
+                <div class="participant-row">
+                  <span class="drag-handle">░░</span>
+                  <input type="text" class="participant-input" value="${escHTML(teamName)}"
+                    ${cat.started ? 'disabled' : ''}
+                    oninput="updateTeamName(${gIdx}, ${tIdx}, this.value)"
+                    onfocus="if(this.value.startsWith('Team ')) this.select()">
+                  ${!cat.started ? `<button class="btn-del-p" onclick="removeParticipant(${gIdx}, ${tIdx})" title="Remove">✕</button>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `).join('');
+
+        // If less than 4 groups in group stage, allow adding another group
+        if (!cat.started && cat.groups.length < 4) {
+          list.innerHTML += `<button class="btn-group-add" style="margin-bottom:12px; font-size:11px;" onclick="addGroup()">+ Add Another Group</button>`;
+        }
+
+      } else {
+        // Single Flat List
+        list.innerHTML = `
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            ${cat.flatTeams.map((teamName, tIdx) => `
+              <div class="participant-row">
+                <span class="drag-handle">░░</span>
+                <input type="text" class="participant-input" value="${escHTML(teamName)}"
+                  ${cat.started ? 'disabled' : ''}
+                  oninput="updateTeamName(0, ${tIdx}, this.value)"
+                  onfocus="if(this.value.startsWith('Team ')) this.select()">
+                ${!cat.started ? `<button class="btn-del-p" onclick="removeParticipant(0, ${tIdx})" title="Remove">✕</button>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+    }
+
+    /* ================================================================
+       ZOOM CONTROL
+       ================================================================ */
+    function applyZoom(z) {
+      const cat = getActiveCat();
+      if (cat) cat.zoom = Math.max(0.25, Math.min(2, z));
+      const canvas = document.getElementById('bracket-canvas');
+      canvas.style.transform = `scale(${cat ? cat.zoom : 1})`;
+      document.getElementById('zoom-lbl').textContent = Math.round((cat ? cat.zoom : 1) * 100) + '%';
+    }
+    function zoomIn() { const cat = getActiveCat(); if (cat) applyZoom(cat.zoom + 0.1); }
+    function zoomOut() { const cat = getActiveCat(); if (cat) applyZoom(cat.zoom - 0.1); }
+    function zoomFit() { applyZoom(1); }
+
+    /* ================================================================
+       TOURNAMENT START / RESET
+       ================================================================ */
+    function startTournament() {
+      const cat = getActiveCat();
+      if (!cat) return;
+
+      const totalTeams = getTotalTeamCount(cat);
+      if (totalTeams < 2) {
+        switchSidebarTab('teams');
+        const btn = document.getElementById('btn-add-p');
+        btn.style.animation = 'shake 0.4s ease';
+        setTimeout(() => btn.style.animation = '', 500);
+        return;
+      }
+
+      // Format check for elimination power of 2
+      if (cat.type === 'single_elim' || cat.type === 'double_elim') {
+        const n = cat.flatTeams.length;
+        const isPow2 = (n & (n - 1)) === 0;
+        if (!isPow2) {
+          const next = Math.pow(2, Math.ceil(Math.log2(n)));
+          while (cat.flatTeams.length < next) cat.flatTeams.push('BYE');
+        }
+      }
+
+      cat.started = true;
+      loadCatToSidebar();
+      renderCatTabs();
+      renderLivePreview();
+    }
+
+    function resetTournament() {
+      const cat = getActiveCat();
+      if (!cat) return;
+
+      cat.started = false;
+      cat.flatTeams = cat.flatTeams.filter(p => p !== 'BYE');
+      cat.matches = {};
+      cat.elimBracket = null;
+      cat.doubleElim = null;
+      cat.groupStage = null;
+
+      loadCatToSidebar();
+      renderCatTabs();
+      renderLivePreview();
+    }
+
+    /* ================================================================
+       LIVE PREVIEW / BRACKET RENDERER
+       ================================================================ */
+    function renderLivePreview() {
+      const cat = getActiveCat();
+      const canvas = document.getElementById('bracket-canvas');
+      canvas.innerHTML = '';
+
+      if (!cat) return;
+
+      switch (cat.type) {
+        case 'single_elim': renderSingleElim(cat, canvas); break;
+        case 'double_elim': renderDoubleElim(cat, canvas); break;
+        case 'round_robin': renderRoundRobinSingle(cat, canvas); break;
+        case 'round_robin_double': renderRoundRobinMulti(cat, canvas); break;
+        case 'group_stage': renderGroupStage(cat, canvas); break;
+      }
+    }
+
+    function escHTML(s) {
+      return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    /* ================================================================
+       SINGLE ELIMINATION
+       ================================================================ */
+    function renderSingleElim(cat, container) {
+      if (!cat.elimBracket) {
+        const teams = [...cat.flatTeams];
+        const n2 = Math.pow(2, Math.ceil(Math.log2(Math.max(2, teams.length))));
+        while (teams.length < n2) teams.push('BYE');
+
+        const numRounds = Math.log2(teams.length);
+        const bracket = [];
+
+        const first = [];
+        for (let i = 0; i < teams.length; i += 2) {
+          const t1 = teams[i], t2 = teams[i + 1];
+          const isBye1 = t1 === 'BYE', isBye2 = t2 === 'BYE';
+          const winner = isBye1 ? t2 : (isBye2 ? t1 : null);
+          first.push({ team1: isBye1 ? null : t1, team2: isBye2 ? null : t2, s1: '', s2: '', winner });
+        }
+        bracket.push(first);
+
+        for (let r = 1; r < numRounds; r++) {
+          const round = [];
+          for (let i = 0; i < bracket[r - 1].length; i += 2)
+            round.push({ team1: null, team2: null, s1: '', s2: '', winner: null });
+          bracket.push(round);
+        }
+
+        first.forEach((m, mIdx) => {
+          if (m.winner && bracket.length > 1) {
+            const next = bracket[1][Math.floor(mIdx / 2)];
+            if (mIdx % 2 === 0) next.team1 = m.winner; else next.team2 = m.winner;
+          }
+        });
+        cat.elimBracket = bracket;
+      }
+
+      drawTreeBracket(cat, container, cat.elimBracket, 'se');
+    }
+
+    function drawTreeBracket(cat, container, bracket, prefix) {
+      const wrap = document.createElement('div');
+      wrap.className = 'elim-bracket';
+
+      bracket.forEach((round, rIdx) => {
+        const rd = document.createElement('div');
+        rd.className = 'elim-round';
+        rd.innerHTML = `<div class="elim-round-label">${roundLabel(rIdx, bracket.length)}</div>`;
+        const md = document.createElement('div');
+        md.className = 'elim-matches';
+
+        round.forEach((m, mIdx) => {
+          const mid = `${prefix}_r${rIdx}_m${mIdx}`;
+          const card = document.createElement('div');
+          card.className = 'match-card';
+          card.innerHTML = matchCardSlotHTML(cat, m, mid, prefix);
+          md.appendChild(card);
+        });
+
+        rd.appendChild(md);
+        wrap.appendChild(rd);
+      });
+
+      container.appendChild(wrap);
+
+      const final = bracket[bracket.length - 1][0];
+      const champ = document.createElement('div');
+      champ.className = `champion-card ${final.winner ? '' : 'hidden'}`;
+      champ.innerHTML = `<div class="trophy">🏆</div><div class="champ-label">Champion</div><div class="champ-name">${escHTML(final.winner || '—')}</div>`;
+      container.appendChild(champ);
+    }
+
+    function roundLabel(rIdx, total) {
+      const left = total - rIdx;
+      if (left === 1) return 'Final';
+      if (left === 2) return 'Semifinals';
+      if (left === 3) return 'Quarterfinals';
+      return `Round ${rIdx + 1}`;
+    }
+
+    function matchCardSlotHTML(cat, m, id, prefix) {
+      const canEdit = cat.started && m.team1 !== null && m.team2 !== null;
+      const w1 = m.winner && m.winner === m.team1;
+      const w2 = m.winner && m.winner === m.team2;
+      return `
+        <div class="match-slot ${w1 ? 'is-winner' : ''}">
+          ${m.team1 ? `<span class="name">${escHTML(m.team1)}</span>` : '<span class="tbd">TBD</span>'}
+          <input type="number" min="0" class="score-inp" value="${m.s1 !== '' ? m.s1 : ''}"
+            ${canEdit ? '' : 'disabled'}
+            oninput="handleTreeScore('${prefix}','${id}',1,this.value)">
+        </div>
+        <div class="match-slot ${w2 ? 'is-winner' : ''}">
+          ${m.team2 ? `<span class="name">${escHTML(m.team2)}</span>` : '<span class="tbd">TBD</span>'}
+          <input type="number" min="0" class="score-inp" value="${m.s2 !== '' ? m.s2 : ''}"
+            ${canEdit ? '' : 'disabled'}
+            oninput="handleTreeScore('${prefix}','${id}',2,this.value)">
+        </div>`;
+    }
+
+    function handleTreeScore(prefix, id, teamNum, val) {
+      const cat = getActiveCat();
+      if (!cat || !cat.started) return;
+
+      if (prefix === 'se') {
+        const [, rPart, mPart] = id.split('_');
+        const rIdx = parseInt(rPart.substring(1));
+        const mIdx = parseInt(mPart.substring(1));
+        const match = cat.elimBracket[rIdx][mIdx];
+
+        if (teamNum === 1) match.s1 = val !== '' ? parseInt(val) : '';
+        if (teamNum === 2) match.s2 = val !== '' ? parseInt(val) : '';
+
+        const prev = match.winner;
+        match.winner = null;
+        if (Number.isInteger(match.s1) && Number.isInteger(match.s2) && match.s1 !== match.s2)
+          match.winner = match.s1 > match.s2 ? match.team1 : match.team2;
+
+        if (rIdx < cat.elimBracket.length - 1) {
+          const next = cat.elimBracket[rIdx + 1][Math.floor(mIdx / 2)];
+          if (mIdx % 2 === 0) next.team1 = match.winner; else next.team2 = match.winner;
+          if (prev !== match.winner) clearTreeDown(cat.elimBracket, rIdx + 1, Math.floor(mIdx / 2));
+        }
+      } else if (prefix === 'gsp') {
+        const [, rPart, mPart] = id.split('_');
+        const rIdx = parseInt(rPart.substring(1));
+        const mIdx = parseInt(mPart.substring(1));
+        const bracket = cat.groupStage.playoffBracket;
+        const match = bracket[rIdx][mIdx];
+
+        if (teamNum === 1) match.s1 = val !== '' ? parseInt(val) : '';
+        if (teamNum === 2) match.s2 = val !== '' ? parseInt(val) : '';
+
+        const prev = match.winner;
+        match.winner = null;
+        if (Number.isInteger(match.s1) && Number.isInteger(match.s2) && match.s1 !== match.s2)
+          match.winner = match.s1 > match.s2 ? match.team1 : match.team2;
+
+        if (rIdx < bracket.length - 1) {
+          const next = bracket[rIdx + 1][Math.floor(mIdx / 2)];
+          if (mIdx % 2 === 0) next.team1 = match.winner; else next.team2 = match.winner;
+          if (prev !== match.winner) clearTreeDown(bracket, rIdx + 1, Math.floor(mIdx / 2));
+        }
+      }
+      renderLivePreview();
+    }
+
+    function clearTreeDown(bracket, rIdx, mIdx) {
+      if (rIdx >= bracket.length) return;
+      const m = bracket[rIdx][mIdx];
+      m.s1 = ''; m.s2 = ''; m.winner = null;
+      if (rIdx < bracket.length - 1) clearTreeDown(bracket, rIdx + 1, Math.floor(mIdx / 2));
+    }
+
+    /* ================================================================
+       DOUBLE ELIMINATION
+       ================================================================ */
+    function renderDoubleElim(cat, container) {
+      if (!cat.doubleElim) {
+        const teams = [...cat.flatTeams].filter(t => t !== 'BYE');
+        const n2 = Math.pow(2, Math.ceil(Math.log2(Math.max(2, teams.length))));
+        while (teams.length < n2) teams.push(null);
+        const n = teams.length;
+        const wRounds = Math.log2(n);
+
+        const winners = [];
+        const firstW = [];
+        for (let i = 0; i < n; i += 2) {
+          firstW.push({ team1: teams[i], team2: teams[i + 1], s1: '', s2: '', winner: teams[i + 1] === null ? teams[i] : (teams[i] === null ? teams[i + 1] : null) });
+        }
+        winners.push(firstW);
+        for (let r = 1; r < wRounds; r++) {
+          const round = [];
+          for (let i = 0; i < winners[r - 1].length; i += 2)
+            round.push({ team1: null, team2: null, s1: '', s2: '', winner: null });
+          winners.push(round);
+        }
+
+        const lRoundCount = Math.max(1, 2 * (wRounds - 1));
+        const losers = [];
+        let prevLC = Math.max(1, n / 4);
+        for (let r = 0; r < lRoundCount; r++) {
+          let mc = (r === 0) ? Math.max(1, n / 4) : ((r % 2 === 1) ? prevLC : Math.max(1, prevLC / 2));
+          prevLC = mc;
+          const round = [];
+          for (let i = 0; i < mc; i++) round.push({ team1: null, team2: null, s1: '', s2: '', winner: null });
+          losers.push(round);
+        }
+
+        const grandFinal = [{ team1: null, team2: null, s1: '', s2: '', winner: null }];
+        cat.doubleElim = { winners, losers, grandFinal };
+      }
+
+      const de = cat.doubleElim;
+
+      // Winners
+      const ws = document.createElement('div');
+      ws.className = 'de-section';
+      ws.innerHTML = '<div class="de-label winners">🏆 Winners Bracket</div>';
+      const wb = document.createElement('div');
+      wb.className = 'elim-bracket';
+      de.winners.forEach((round, rIdx) => {
+        const rd = document.createElement('div');
+        rd.className = 'elim-round';
+        rd.innerHTML = `<div class="elim-round-label">${roundLabel(rIdx, de.winners.length)} (W)</div>`;
+        const md = document.createElement('div');
+        md.className = 'elim-matches';
+        round.forEach((m, mIdx) => {
+          const id = `de_w_r${rIdx}_m${mIdx}`;
+          const el = document.createElement('div');
+          el.className = 'match-card';
+          el.innerHTML = matchCardSlotHTML(cat, m, id, 'de_w');
+          md.appendChild(el);
+        });
+        rd.appendChild(md);
+        wb.appendChild(rd);
+      });
+      ws.appendChild(wb);
+      container.appendChild(ws);
+
+      // Losers
+      const ls = document.createElement('div');
+      ls.className = 'de-section';
+      ls.innerHTML = '<div class="de-label losers">💀 Losers Bracket</div>';
+      const lb = document.createElement('div');
+      lb.className = 'elim-bracket';
+      de.losers.forEach((round, rIdx) => {
+        const rd = document.createElement('div');
+        rd.className = 'elim-round';
+        rd.innerHTML = `<div class="elim-round-label">Losers R${rIdx + 1}</div>`;
+        const md = document.createElement('div');
+        md.className = 'elim-matches';
+        round.forEach((m, mIdx) => {
+          const id = `de_l_r${rIdx}_m${mIdx}`;
+          const el = document.createElement('div');
+          el.className = 'match-card';
+          el.innerHTML = matchCardSlotHTML(cat, m, id, 'de_l');
+          md.appendChild(el);
+        });
+        rd.appendChild(md);
+        lb.appendChild(rd);
+      });
+      ls.appendChild(lb);
+      container.appendChild(ls);
+
+      // Grand Final
+      const gs = document.createElement('div');
+      gs.className = 'de-section';
+      gs.innerHTML = '<div class="de-label grand">⚔️ Grand Final</div>';
+      const gb = document.createElement('div');
+      gb.className = 'elim-bracket';
+      const grd = document.createElement('div');
+      grd.className = 'elim-round';
+      grd.innerHTML = '<div class="elim-round-label">Grand Final</div>';
+      const gmd = document.createElement('div');
+      gmd.className = 'elim-matches';
+      const gel = document.createElement('div');
+      gel.className = 'match-card';
+      gel.innerHTML = matchCardSlotHTML(cat, de.grandFinal[0], 'de_gf_r0_m0', 'de_gf');
+      gmd.appendChild(gel);
+      grd.appendChild(gmd);
+      gb.appendChild(grd);
+      gs.appendChild(gb);
+      container.appendChild(gs);
+
+      // Champion
+      const champ = document.createElement('div');
+      champ.className = `champion-card ${de.grandFinal[0].winner ? '' : 'hidden'}`;
+      champ.innerHTML = `<div class="trophy">🏆</div><div class="champ-label">Champion</div><div class="champ-name">${escHTML(de.grandFinal[0].winner || '—')}</div>`;
+      container.appendChild(champ);
+    }
+
+    /* ================================================================
+       ROUND ROBIN SCHEDULER & RENDERERS
+       ================================================================ */
+    function rrSchedule(teams) {
+      const list = [...teams];
+      if (list.length % 2 !== 0) list.push('BYE');
+      const rounds = [], n = list.length;
+      for (let r = 0; r < n - 1; r++) {
+        const round = { num: r + 1, matches: [], bye: null };
+        for (let i = 0; i < n / 2; i++) {
+          const a = list[i], b = list[n - 1 - i];
+          if (a === 'BYE') round.bye = b;
+          else if (b === 'BYE') round.bye = a;
+          else round.matches.push({ team1: a, team2: b });
+        }
+        list.splice(1, 0, list.pop());
         rounds.push(round);
       }
       return rounds;
     }
 
-    function initTournament() {
-      groups.forEach(group => {
-        const schedule = generateRoundRobin(group.teams);
-        const matchContainer = document.getElementById(`matches-${group.id}`);
-        matchContainer.innerHTML = "";
+    function renderRoundRobinSingle(cat, container) {
+      const groups = [{ name: 'Round Robin Pool', teams: cat.flatTeams.filter(p => p !== 'BYE') }];
+      drawRoundRobinPools(cat, container, groups);
+    }
 
-        schedule.forEach(round => {
-          const roundDiv = document.createElement("div");
-          roundDiv.innerHTML = `<div class="round-title">Round ${round.roundNum}</div>`;
-          const row = document.createElement("div");
-          row.className = "matchups-row";
+    function renderRoundRobinMulti(cat, container) {
+      drawRoundRobinPools(cat, container, cat.groups);
+    }
 
-          round.matches.forEach((m, idx) => {
-            const matchId = `g${group.id}_r${round.roundNum}_m${idx}`;
-            matchData[matchId] = { team1: m.team1, team2: m.team2, s1: "", s2: "" };
+    function drawRoundRobinPools(cat, container, groups) {
+      const wrap = document.createElement('div');
+      wrap.className = `rr-layout ${groups.length > 1 ? 'multi' : ''}`;
 
-            const box = document.createElement("div");
-            box.className = "match-box";
-            box.innerHTML = `
-              <div class="team-row">
-                <span class="team-name" id="${matchId}_t1_name">${m.team1}</span>
-                <input type="number" min="0" class="score-input" id="${matchId}_s1" oninput="updateScore('${group.id}', '${matchId}', 1, this.value)">
+      const poolHeaders = ['p-a', 'p-b', 'p-c', 'p-d'];
+
+      groups.forEach((group, pIdx) => {
+        const panel = document.createElement('div');
+        panel.className = 'rr-pool-panel';
+
+        const label = escHTML(group.name);
+        panel.innerHTML = `<div class="rr-pool-header ${poolHeaders[pIdx]||'p-a'}">${label}</div>`;
+
+        const body = document.createElement('div');
+        body.className = 'rr-pool-body';
+
+        const sched = rrSchedule(group.teams);
+        sched.forEach(round => {
+          body.innerHTML += `<div class="rr-round-label">Round ${round.num}</div>`;
+          const grid = document.createElement('div');
+          grid.className = 'rr-match-grid';
+
+          round.matches.forEach((m, mIdx) => {
+            const mid = `rr_p${pIdx}_r${round.num}_m${mIdx}`;
+            if (!cat.matches[mid]) cat.matches[mid] = { team1: m.team1, team2: m.team2, s1: '', s2: '' };
+            const stored = cat.matches[mid];
+
+            const card = document.createElement('div');
+            card.className = 'match-card';
+            const canEdit = cat.started;
+            const w1 = Number.isInteger(stored.s1) && Number.isInteger(stored.s2) && stored.s1 > stored.s2;
+            const w2 = Number.isInteger(stored.s1) && Number.isInteger(stored.s2) && stored.s2 > stored.s1;
+
+            card.innerHTML = `
+              <div class="match-slot ${w1 ? 'is-winner' : ''}">
+                <span class="name">${escHTML(m.team1)}</span>
+                <input type="number" min="0" class="score-inp" value="${stored.s1 !== '' ? stored.s1 : ''}"
+                  ${canEdit ? '' : 'disabled'}
+                  oninput="handleRRScore('${mid}',1,this.value,${pIdx})">
               </div>
-              <div class="team-row">
-                <span class="team-name" id="${matchId}_t2_name">${m.team2}</span>
-                <input type="number" min="0" class="score-input" id="${matchId}_s2" oninput="updateScore('${group.id}', '${matchId}', 2, this.value)">
-              </div>
-            `;
-            row.appendChild(box);
+              <div class="match-slot ${w2 ? 'is-winner' : ''}">
+                <span class="name">${escHTML(m.team2)}</span>
+                <input type="number" min="0" class="score-inp" value="${stored.s2 !== '' ? stored.s2 : ''}"
+                  ${canEdit ? '' : 'disabled'}
+                  oninput="handleRRScore('${mid}',2,this.value,${pIdx})">
+              </div>`;
+            grid.appendChild(card);
           });
-
-          roundDiv.appendChild(row);
-          if (round.bye) {
-            const byeElem = document.createElement("div");
-            byeElem.className = "bye-label";
-            byeElem.textContent = `Bye: ${round.bye}`;
-            roundDiv.appendChild(byeElem);
-          }
-          matchContainer.appendChild(roundDiv);
+          body.appendChild(grid);
+          if (round.bye) body.innerHTML += `<div class="rr-bye-label">Bye: ${round.bye}</div>`;
         });
 
-        updateStandings(group.id);
+        body.innerHTML += `
+          <div class="standings-wrap">
+            <div class="standings-label">${label} Standings</div>
+            <table class="standings-tbl" id="st-p${pIdx}">
+              <thead><tr><th>#</th><th>Team</th><th>W</th><th>L</th><th>Diff</th><th>Pts</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>`;
+
+        panel.appendChild(body);
+        wrap.appendChild(panel);
+        setTimeout(() => updateRRStandings(cat, pIdx, group.teams), 0);
       });
+
+      container.appendChild(wrap);
     }
 
-    function updateScore(groupId, matchId, teamNum, value) {
-      if (teamNum === 1) matchData[matchId].s1 = value !== "" ? parseInt(value) : "";
-      if (teamNum === 2) matchData[matchId].s2 = value !== "" ? parseInt(value) : "";
+    function handleRRScore(mid, teamNum, val, pIdx) {
+      const cat = getActiveCat();
+      if (!cat || !cat.started) return;
 
-      const m = matchData[matchId];
-      const t1Label = document.getElementById(`${matchId}_t1_name`);
-      const t2Label = document.getElementById(`${matchId}_t2_name`);
+      const m = cat.matches[mid];
+      if (teamNum === 1) m.s1 = val !== '' ? parseInt(val) : '';
+      if (teamNum === 2) m.s2 = val !== '' ? parseInt(val) : '';
 
-      t1Label.classList.remove("winner");
-      t2Label.classList.remove("winner");
+      renderLivePreview();
+    }
 
-      if (Number.isInteger(m.s1) && Number.isInteger(m.s2)) {
-        if (m.s1 > m.s2) t1Label.classList.add("winner");
-        else if (m.s2 > m.s1) t2Label.classList.add("winner");
+    function updateRRStandings(cat, pIdx, pool) {
+      const stats = {};
+      pool.forEach(t => stats[t] = { team: t, w: 0, l: 0, diff: 0, pts: 0 });
+      const prefix = `rr_p${pIdx}_`;
+      Object.keys(cat.matches).forEach(k => {
+        if (!k.startsWith(prefix)) return;
+        const m = cat.matches[k];
+        if (!stats[m.team1] || !stats[m.team2]) return;
+        if (!Number.isInteger(m.s1) || !Number.isInteger(m.s2)) return;
+        stats[m.team1].diff += m.s1 - m.s2;
+        stats[m.team2].diff += m.s2 - m.s1;
+        if (m.s1 > m.s2) { stats[m.team1].w++; stats[m.team1].pts += 2; stats[m.team2].l++; }
+        else if (m.s2 > m.s1) { stats[m.team2].w++; stats[m.team2].pts += 2; stats[m.team1].l++; }
+      });
+      const sorted = Object.values(stats).sort((a, b) => b.pts - a.pts || b.diff - a.diff || b.w - a.w);
+      const tbody = document.querySelector(`#st-p${pIdx} tbody`);
+      if (tbody) tbody.innerHTML = sorted.map((s, i) => `<tr><td>${i + 1}</td><td>${escHTML(s.team)}</td><td>${s.w}</td><td>${s.l}</td><td>${s.diff > 0 ? '+' + s.diff : s.diff}</td><td>${s.pts}</td></tr>`).join('');
+    }
+
+    /* ================================================================
+       GROUP STAGE + KNOCKOUT
+       ================================================================ */
+    function renderGroupStage(cat, container) {
+      if (!cat.groupStage) cat.groupStage = { started: false, playoffBracket: null };
+
+      // Render Groups
+      drawRoundRobinPools(cat, container, cat.groups);
+
+      // Advance Button
+      const advSec = document.createElement('div');
+      advSec.className = 'advance-section';
+      const canAdvance = cat.started && !cat.groupStage.started;
+      advSec.innerHTML = `<button class="btn-advance" ${canAdvance ? '' : 'disabled'} onclick="advancePlayoffs()">🚀 Advance Top Teams to Knockout Playoffs</button>`;
+      container.appendChild(advSec);
+
+      // Playoff Area
+      if (cat.groupStage.started && cat.groupStage.playoffBracket) {
+        const po = document.createElement('div');
+        po.className = 'playoff-area';
+        po.innerHTML = '<div class="playoff-title">⚡ Knockout Playoff Bracket</div>';
+        drawTreeBracket(cat, po, cat.groupStage.playoffBracket, 'gsp');
+        container.appendChild(po);
+      }
+    }
+
+    function advancePlayoffs() {
+      const cat = getActiveCat();
+      if (!cat || !cat.started || cat.groupStage.started) return;
+
+      const advancing = [];
+      cat.groups.forEach((group, gIdx) => {
+        const stats = {};
+        group.teams.forEach(t => stats[t] = { team: t, w: 0, l: 0, diff: 0, pts: 0 });
+        const prefix = `rr_p${gIdx}_`;
+        Object.keys(cat.matches).forEach(k => {
+          if (!k.startsWith(prefix)) return;
+          const m = cat.matches[k];
+          if (!stats[m.team1] || !stats[m.team2]) return;
+          if (!Number.isInteger(m.s1) || !Number.isInteger(m.s2)) return;
+          stats[m.team1].diff += m.s1 - m.s2;
+          stats[m.team2].diff += m.s2 - m.s1;
+          if (m.s1 > m.s2) { stats[m.team1].w++; stats[m.team1].pts += 2; stats[m.team2].l++; }
+          else if (m.s2 > m.s1) { stats[m.team2].w++; stats[m.team2].pts += 2; stats[m.team1].l++; }
+        });
+        const sorted = Object.values(stats).sort((a, b) => b.pts - a.pts || b.diff - a.diff || b.w - a.w);
+        advancing.push(sorted.slice(0, 2));
+      });
+
+      let seeds = [];
+      if (cat.groups.length === 2) {
+        seeds = [advancing[0][0].team, advancing[1][1].team, advancing[1][0].team, advancing[0][1].team];
+      } else {
+        seeds = [advancing[0][0].team, advancing[3][1].team, advancing[1][0].team, advancing[2][1].team,
+                 advancing[2][0].team, advancing[1][1].team, advancing[3][0].team, advancing[0][1].team];
       }
 
-      updateStandings(groupId);
+      const numRounds = Math.log2(seeds.length);
+      const bracket = [];
+      const first = [];
+      for (let i = 0; i < seeds.length; i += 2)
+        first.push({ team1: seeds[i], team2: seeds[i + 1], s1: '', s2: '', winner: null });
+      bracket.push(first);
+      for (let r = 1; r < numRounds; r++) {
+        const round = [];
+        for (let i = 0; i < bracket[r - 1].length; i += 2)
+          round.push({ team1: null, team2: null, s1: '', s2: '', winner: null });
+        bracket.push(round);
+      }
+
+      cat.groupStage.started = true;
+      cat.groupStage.playoffBracket = bracket;
+      renderLivePreview();
     }
 
-    function updateStandings(groupId) {
-      const group = groups.find(g => g.id == groupId);
-      const stats = {};
-
-      group.teams.forEach(t => stats[t] = { team: t, wins: 0, losses: 0, diff: 0, pts: 0 });
-
-      Object.keys(matchData).forEach(key => {
-        if (key.startsWith(`g${groupId}_`)) {
-          const m = matchData[key];
-          if (Number.isInteger(m.s1) && Number.isInteger(m.s2)) {
-            stats[m.team1].diff += (m.s1 - m.s2);
-            stats[m.team2].diff += (m.s2 - m.s1);
-
-            if (m.s1 > m.s2) {
-              stats[m.team1].wins += 1;
-              stats[m.team1].pts += 2; // 2 pts for a win
-              stats[m.team2].losses += 1;
-            } else if (m.s2 > m.s1) {
-              stats[m.team2].wins += 1;
-              stats[m.team2].pts += 2;
-              stats[m.team1].losses += 1;
-            }
-          }
-        }
-      });
-
-      // Sort by Points -> Differential -> Wins
-      const sorted = Object.values(stats).sort((a, b) => b.pts - a.pts || b.diff - a.diff || b.wins - a.wins);
-
-      const tbody = document.querySelector(`#standings-${groupId} tbody`);
-      tbody.innerHTML = sorted.map((s, index) => `
-        <tr>
-          <td>${index + 1}</td>
-          <td>${s.team}</td>
-          <td>${s.wins}</td>
-          <td>${s.losses}</td>
-          <td>${s.diff > 0 ? "+" + s.diff : s.diff}</td>
-          <td>${s.pts}</td>
-        </tr>
-      `).join("");
+    function exportBracket() {
+      alert('Bracket saved! You can also print or screenshot your bracket viewport.');
     }
 
-    window.onload = initTournament;
+    // Start App
+    initApp();
   </script>
 </body>
 </html>
