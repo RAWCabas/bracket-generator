@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tournament Bracket & Standings Generator</title>
+  <style>
+    :root {
+      --bg-main: #181a1f;
+      --bg-panel: #21252b;
+      --bg-card: #282c34;
+      --border-color: #3b4048;
+      --text-main: #abb2bf;
+      --text-white: #ffffff;
+      --accent: #0088cc;
+      --win-color: #98c379;
+      --loss-color: #e06c75;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg-main); color: var(--text-main); padding: 20px; }
+    
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; }
+    h1 { color: var(--text-white); font-size: 24px; }
+
+    .bracket-container { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .bracket-panel { background: var(--bg-panel); border-radius: 8px; padding: 20px; border: 1px solid var(--border-color); }
+    .bracket-title { color: var(--text-white); font-size: 18px; margin-bottom: 15px; display: flex; justify-content: space-between; }
+
+    /* Match Grid Styles */
+    .round-container { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
+    .round-title { font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 5px; }
+    .matchups-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+
+    .match-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .team-row { display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+    .team-name { color: var(--text-white); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
+    .team-name.winner { color: var(--win-color); font-weight: bold; }
+    
+    .score-input {
+      width: 45px;
+      padding: 3px 6px;
+      background: #1e2227;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      color: #fff;
+      text-align: center;
+    }
+    .score-input:focus { border-color: var(--accent); outline: none; }
+    .bye-label { font-size: 12px; font-style: italic; color: #5c6370; margin-top: 4px; }
+
+    /* Standings Table */
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; text-align: left; }
+    th { background: #1e2227; color: var(--text-white); padding: 8px; font-weight: 600; }
+    td { padding: 8px; border-bottom: 1px solid var(--border-color); }
+    tr:first-child td { font-weight: bold; color: var(--win-color); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Tournament Manager</h1>
+  </header>
+
+  <div class="bracket-container">
+    <!-- Bracket A -->
+    <section class="bracket-panel" id="group-0">
+      <div class="bracket-title">
+        <span>Bracket A</span>
+      </div>
+      <div class="round-container" id="matches-0"></div>
+      <h3 style="color: #fff; font-size: 15px; margin-bottom: 8px;">Standings</h3>
+      <table id="standings-0">
+        <thead>
+          <tr><th>#</th><th>Team</th><th>W</th><th>L</th><th>Diff</th><th>Pts</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- Bracket B -->
+    <section class="bracket-panel" id="group-1">
+      <div class="bracket-title">
+        <span>Bracket B</span>
+      </div>
+      <div class="round-container" id="matches-1"></div>
+      <h3 style="color: #fff; font-size: 15px; margin-bottom: 8px;">Standings</h3>
+      <table id="standings-1">
+        <thead>
+          <tr><th>#</th><th>Team</th><th>W</th><th>L</th><th>Diff</th><th>Pts</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+
+  <script>
+    const groups = [
+      { id: 0, name: "Bracket A", teams: ["Team A1", "Team A2", "Team A3", "Team A4", "Team A5"] },
+      { id: 1, name: "Bracket B", teams: ["Team B1", "Team B2", "Team B3", "Team B4", "Team B5"] }
+    ];
+
+    let matchData = {};
+
+    // Standard Polygon-Round-Robin generator (handles Byes automatically for odd teams)
+    function generateRoundRobin(teams) {
+      const list = [...teams];
+      const hasBye = list.length % 2 !== 0;
+      if (hasBye) list.push("BYE");
+
+      const rounds = [];
+      const n = list.length;
+      for (let r = 0; r < n - 1; r++) {
+        const round = { roundNum: r + 1, matches: [], bye: null };
+        for (let i = 0; i < n / 2; i++) {
+          const t1 = list[i];
+          const t2 = list[n - 1 - i];
+          if (t1 === "BYE") round.bye = t2;
+          else if (t2 === "BYE") round.bye = t1;
+          else round.matches.push({ team1: t1, team2: t2 });
+        }
+        list.splice(1, 0, list.pop()); // Rotate array
+        rounds.push(round);
+      }
+      return rounds;
+    }
+
+    function initTournament() {
+      groups.forEach(group => {
+        const schedule = generateRoundRobin(group.teams);
+        const matchContainer = document.getElementById(`matches-${group.id}`);
+        matchContainer.innerHTML = "";
+
+        schedule.forEach(round => {
+          const roundDiv = document.createElement("div");
+          roundDiv.innerHTML = `<div class="round-title">Round ${round.roundNum}</div>`;
+          const row = document.createElement("div");
+          row.className = "matchups-row";
+
+          round.matches.forEach((m, idx) => {
+            const matchId = `g${group.id}_r${round.roundNum}_m${idx}`;
+            matchData[matchId] = { team1: m.team1, team2: m.team2, s1: "", s2: "" };
+
+            const box = document.createElement("div");
+            box.className = "match-box";
+            box.innerHTML = `
+              <div class="team-row">
+                <span class="team-name" id="${matchId}_t1_name">${m.team1}</span>
+                <input type="number" min="0" class="score-input" id="${matchId}_s1" oninput="updateScore('${group.id}', '${matchId}', 1, this.value)">
+              </div>
+              <div class="team-row">
+                <span class="team-name" id="${matchId}_t2_name">${m.team2}</span>
+                <input type="number" min="0" class="score-input" id="${matchId}_s2" oninput="updateScore('${group.id}', '${matchId}', 2, this.value)">
+              </div>
+            `;
+            row.appendChild(box);
+          });
+
+          roundDiv.appendChild(row);
+          if (round.bye) {
+            const byeElem = document.createElement("div");
+            byeElem.className = "bye-label";
+            byeElem.textContent = `Bye: ${round.bye}`;
+            roundDiv.appendChild(byeElem);
+          }
+          matchContainer.appendChild(roundDiv);
+        });
+
+        updateStandings(group.id);
+      });
+    }
+
+    function updateScore(groupId, matchId, teamNum, value) {
+      if (teamNum === 1) matchData[matchId].s1 = value !== "" ? parseInt(value) : "";
+      if (teamNum === 2) matchData[matchId].s2 = value !== "" ? parseInt(value) : "";
+
+      const m = matchData[matchId];
+      const t1Label = document.getElementById(`${matchId}_t1_name`);
+      const t2Label = document.getElementById(`${matchId}_t2_name`);
+
+      t1Label.classList.remove("winner");
+      t2Label.classList.remove("winner");
+
+      if (Number.isInteger(m.s1) && Number.isInteger(m.s2)) {
+        if (m.s1 > m.s2) t1Label.classList.add("winner");
+        else if (m.s2 > m.s1) t2Label.classList.add("winner");
+      }
+
+      updateStandings(groupId);
+    }
+
+    function updateStandings(groupId) {
+      const group = groups.find(g => g.id == groupId);
+      const stats = {};
+
+      group.teams.forEach(t => stats[t] = { team: t, wins: 0, losses: 0, diff: 0, pts: 0 });
+
+      Object.keys(matchData).forEach(key => {
+        if (key.startsWith(`g${groupId}_`)) {
+          const m = matchData[key];
+          if (Number.isInteger(m.s1) && Number.isInteger(m.s2)) {
+            stats[m.team1].diff += (m.s1 - m.s2);
+            stats[m.team2].diff += (m.s2 - m.s1);
+
+            if (m.s1 > m.s2) {
+              stats[m.team1].wins += 1;
+              stats[m.team1].pts += 2; // 2 pts for a win
+              stats[m.team2].losses += 1;
+            } else if (m.s2 > m.s1) {
+              stats[m.team2].wins += 1;
+              stats[m.team2].pts += 2;
+              stats[m.team1].losses += 1;
+            }
+          }
+        }
+      });
+
+      // Sort by Points -> Differential -> Wins
+      const sorted = Object.values(stats).sort((a, b) => b.pts - a.pts || b.diff - a.diff || b.wins - a.wins);
+
+      const tbody = document.querySelector(`#standings-${groupId} tbody`);
+      tbody.innerHTML = sorted.map((s, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${s.team}</td>
+          <td>${s.wins}</td>
+          <td>${s.losses}</td>
+          <td>${s.diff > 0 ? "+" + s.diff : s.diff}</td>
+          <td>${s.pts}</td>
+        </tr>
+      `).join("");
+    }
+
+    window.onload = initTournament;
+  </script>
+</body>
+</html>
