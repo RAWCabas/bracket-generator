@@ -832,8 +832,6 @@
         sport: '',
         type: type,
         desc: '',
-        // For single list formats: array of team names strings
-        // For multi-group formats: array of group objects: [ { id: 'A', name: 'Group A', teams: [...] }, { id: 'B', name: 'Group B', teams: [...] } ]
         groups: [
           { id: 'A', name: 'Group A', teams: ['Team 1', 'Team 2', 'Team 3', 'Team 4'] },
           { id: 'B', name: 'Group B', teams: ['Team 5', 'Team 6', 'Team 7', 'Team 8'] }
@@ -969,7 +967,6 @@
 
       cat.type = document.getElementById('inp-type').value;
 
-      // Reset brackets
       cat.elimBracket = null;
       cat.doubleElim = null;
       cat.groupStage = null;
@@ -979,7 +976,7 @@
     }
 
     /* ================================================================
-       PARTICIPANTS MANAGEMENT (DIRECT GROUPED INPUT)
+       PARTICIPANTS MANAGEMENT
        ================================================================ */
     function addParticipant(grpIdx = null) {
       const cat = getActiveCat();
@@ -1045,17 +1042,14 @@
       if (!cat || cat.started) return;
 
       if (isMultiGroupFormat(cat.type)) {
-        // Collect all teams and shuffle
         let all = [];
         cat.groups.forEach(g => all.push(...g.teams));
 
-        // Fisher-Yates shuffle
         for (let i = all.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
           [all[i], all[j]] = [all[j], all[i]];
         }
 
-        // Re-distribute evenly across groups
         const numGroups = cat.groups.length;
         cat.groups.forEach(g => g.teams = []);
         all.forEach((t, i) => {
@@ -1088,7 +1082,6 @@
       document.getElementById('participant-count').textContent = `(${totalCount})`;
 
       if (isMultiGroupFormat(cat.type)) {
-        // Render Group Blocks (BracketHQ style)
         list.innerHTML = cat.groups.map((group, gIdx) => `
           <div class="group-block">
             <div class="group-block-header">
@@ -1110,13 +1103,11 @@
           </div>
         `).join('');
 
-        // If less than 4 groups in group stage, allow adding another group
         if (!cat.started && cat.groups.length < 4) {
           list.innerHTML += `<button class="btn-group-add" style="margin-bottom:12px; font-size:11px;" onclick="addGroup()">+ Add Another Group</button>`;
         }
 
       } else {
-        // Single Flat List
         list.innerHTML = `
           <div style="display:flex; flex-direction:column; gap:6px;">
             ${cat.flatTeams.map((teamName, tIdx) => `
@@ -1164,7 +1155,6 @@
         return;
       }
 
-      // Format check for elimination power of 2
       if (cat.type === 'single_elim' || cat.type === 'double_elim') {
         const n = cat.flatTeams.length;
         const isPow2 = (n & (n - 1)) === 0;
@@ -1491,7 +1481,7 @@
     }
 
     /* ================================================================
-       ROUND ROBIN SCHEDULER & RENDERERS
+       ROUND ROBIN SCHEDULER & STANDINGS TRACKER
        ================================================================ */
     function rrSchedule(teams) {
       const list = [...teams];
@@ -1544,7 +1534,7 @@
 
           round.matches.forEach((m, mIdx) => {
             const mid = `rr_p${pIdx}_r${round.num}_m${mIdx}`;
-            if (!cat.matches[mid]) cat.matches[mid] = { team1: m.team1, team2: m.team2, s1: '', s2: '' };
+            if (!cat.matches[mid]) cat.matches[mid] = { s1: '', s2: '' };
             const stored = cat.matches[mid];
 
             const card = document.createElement('div');
@@ -1554,17 +1544,17 @@
             const w2 = Number.isInteger(stored.s1) && Number.isInteger(stored.s2) && stored.s2 > stored.s1;
 
             card.innerHTML = `
-              <div class="match-slot ${w1 ? 'is-winner' : ''}">
+              <div class="match-slot ${w1 ? 'is-winner' : ''}" id="${mid}_slot1">
                 <span class="name">${escHTML(m.team1)}</span>
                 <input type="number" min="0" class="score-inp" value="${stored.s1 !== '' ? stored.s1 : ''}"
                   ${canEdit ? '' : 'disabled'}
-                  oninput="handleRRScore('${mid}',1,this.value,${pIdx})">
+                  oninput="handleRRScore('${mid}', 1, this.value, ${pIdx})">
               </div>
-              <div class="match-slot ${w2 ? 'is-winner' : ''}">
+              <div class="match-slot ${w2 ? 'is-winner' : ''}" id="${mid}_slot2">
                 <span class="name">${escHTML(m.team2)}</span>
                 <input type="number" min="0" class="score-inp" value="${stored.s2 !== '' ? stored.s2 : ''}"
                   ${canEdit ? '' : 'disabled'}
-                  oninput="handleRRScore('${mid}',2,this.value,${pIdx})">
+                  oninput="handleRRScore('${mid}', 2, this.value, ${pIdx})">
               </div>`;
             grid.appendChild(card);
           });
@@ -1593,30 +1583,88 @@
       const cat = getActiveCat();
       if (!cat || !cat.started) return;
 
+      if (!cat.matches[mid]) cat.matches[mid] = { s1: '', s2: '' };
       const m = cat.matches[mid];
-      if (teamNum === 1) m.s1 = val !== '' ? parseInt(val) : '';
-      if (teamNum === 2) m.s2 = val !== '' ? parseInt(val) : '';
 
-      renderLivePreview();
+      if (teamNum === 1) m.s1 = val !== '' ? parseInt(val, 10) : '';
+      if (teamNum === 2) m.s2 = val !== '' ? parseInt(val, 10) : '';
+
+      // Highlight winner slots live
+      const slot1 = document.getElementById(`${mid}_slot1`);
+      const slot2 = document.getElementById(`${mid}_slot2`);
+      if (slot1 && slot2) {
+        slot1.classList.remove('is-winner');
+        slot2.classList.remove('is-winner');
+        if (Number.isInteger(m.s1) && Number.isInteger(m.s2)) {
+          if (m.s1 > m.s2) slot1.classList.add('is-winner');
+          else if (m.s2 > m.s1) slot2.classList.add('is-winner');
+        }
+      }
+
+      // Update standings live
+      const groups = (cat.type === 'round_robin')
+        ? [{ name: 'Round Robin Pool', teams: cat.flatTeams.filter(p => p !== 'BYE') }]
+        : cat.groups;
+
+      if (groups[pIdx]) {
+        updateRRStandings(cat, pIdx, groups[pIdx].teams);
+      }
     }
 
-    function updateRRStandings(cat, pIdx, pool) {
+    function updateRRStandings(cat, pIdx, poolTeams) {
       const stats = {};
-      pool.forEach(t => stats[t] = { team: t, w: 0, l: 0, diff: 0, pts: 0 });
-      const prefix = `rr_p${pIdx}_`;
-      Object.keys(cat.matches).forEach(k => {
-        if (!k.startsWith(prefix)) return;
-        const m = cat.matches[k];
-        if (!stats[m.team1] || !stats[m.team2]) return;
-        if (!Number.isInteger(m.s1) || !Number.isInteger(m.s2)) return;
-        stats[m.team1].diff += m.s1 - m.s2;
-        stats[m.team2].diff += m.s2 - m.s1;
-        if (m.s1 > m.s2) { stats[m.team1].w++; stats[m.team1].pts += 2; stats[m.team2].l++; }
-        else if (m.s2 > m.s1) { stats[m.team2].w++; stats[m.team2].pts += 2; stats[m.team1].l++; }
+      poolTeams.forEach(t => {
+        if (t && t !== 'BYE') {
+          stats[t] = { team: t, w: 0, l: 0, d: 0, diff: 0, pts: 0 };
+        }
       });
+
+      const sched = rrSchedule(poolTeams);
+      sched.forEach(round => {
+        round.matches.forEach((m, mIdx) => {
+          const mid = `rr_p${pIdx}_r${round.num}_m${mIdx}`;
+          const stored = cat.matches[mid];
+          if (stored && Number.isInteger(stored.s1) && Number.isInteger(stored.s2)) {
+            const t1 = m.team1;
+            const t2 = m.team2;
+            if (stats[t1] && stats[t2]) {
+              stats[t1].diff += (stored.s1 - stored.s2);
+              stats[t2].diff += (stored.s2 - stored.s1);
+
+              if (stored.s1 > stored.s2) {
+                stats[t1].w += 1;
+                stats[t1].pts += 2;
+                stats[t2].l += 1;
+              } else if (stored.s2 > stored.s1) {
+                stats[t2].w += 1;
+                stats[t2].pts += 2;
+                stats[t1].l += 1;
+              } else {
+                stats[t1].d += 1;
+                stats[t1].pts += 1;
+                stats[t2].d += 1;
+                stats[t2].pts += 1;
+              }
+            }
+          }
+        });
+      });
+
       const sorted = Object.values(stats).sort((a, b) => b.pts - a.pts || b.diff - a.diff || b.w - a.w);
+
       const tbody = document.querySelector(`#st-p${pIdx} tbody`);
-      if (tbody) tbody.innerHTML = sorted.map((s, i) => `<tr><td>${i + 1}</td><td>${escHTML(s.team)}</td><td>${s.w}</td><td>${s.l}</td><td>${s.diff > 0 ? '+' + s.diff : s.diff}</td><td>${s.pts}</td></tr>`).join('');
+      if (tbody) {
+        tbody.innerHTML = sorted.map((s, i) => `
+          <tr>
+            <td>${i + 1}</td>
+            <td>${escHTML(s.team)}</td>
+            <td>${s.w}</td>
+            <td>${s.l}</td>
+            <td>${s.diff > 0 ? '+' + s.diff : s.diff}</td>
+            <td><strong>${s.pts}</strong></td>
+          </tr>
+        `).join('');
+      }
     }
 
     /* ================================================================
@@ -1652,18 +1700,29 @@
       const advancing = [];
       cat.groups.forEach((group, gIdx) => {
         const stats = {};
-        group.teams.forEach(t => stats[t] = { team: t, w: 0, l: 0, diff: 0, pts: 0 });
-        const prefix = `rr_p${gIdx}_`;
-        Object.keys(cat.matches).forEach(k => {
-          if (!k.startsWith(prefix)) return;
-          const m = cat.matches[k];
-          if (!stats[m.team1] || !stats[m.team2]) return;
-          if (!Number.isInteger(m.s1) || !Number.isInteger(m.s2)) return;
-          stats[m.team1].diff += m.s1 - m.s2;
-          stats[m.team2].diff += m.s2 - m.s1;
-          if (m.s1 > m.s2) { stats[m.team1].w++; stats[m.team1].pts += 2; stats[m.team2].l++; }
-          else if (m.s2 > m.s1) { stats[m.team2].w++; stats[m.team2].pts += 2; stats[m.team1].l++; }
+        group.teams.forEach(t => {
+          if (t && t !== 'BYE') stats[t] = { team: t, w: 0, l: 0, diff: 0, pts: 0 };
         });
+
+        const sched = rrSchedule(group.teams);
+        sched.forEach(round => {
+          round.matches.forEach((m, mIdx) => {
+            const mid = `rr_p${gIdx}_r${round.num}_m${mIdx}`;
+            const stored = cat.matches[mid];
+            if (stored && Number.isInteger(stored.s1) && Number.isInteger(stored.s2)) {
+              const t1 = m.team1;
+              const t2 = m.team2;
+              if (stats[t1] && stats[t2]) {
+                stats[t1].diff += (stored.s1 - stored.s2);
+                stats[t2].diff += (stored.s2 - stored.s1);
+                if (stored.s1 > stored.s2) { stats[t1].w++; stats[t1].pts += 2; stats[t2].l++; }
+                else if (stored.s2 > stored.s1) { stats[t2].w++; stats[t2].pts += 2; stats[t1].l++; }
+                else { stats[t1].pts += 1; stats[t2].pts += 1; }
+              }
+            }
+          });
+        });
+
         const sorted = Object.values(stats).sort((a, b) => b.pts - a.pts || b.diff - a.diff || b.w - a.w);
         advancing.push(sorted.slice(0, 2));
       });
