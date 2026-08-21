@@ -1014,7 +1014,7 @@
         return cloud.setDoc(cloud.tournamentRef, payload).then(() => {
           setSyncStatus('Connected & Synced', true);
         }).catch(e => {
-          setSyncStatus('Sync unavailable');
+          setSyncStatus('Sync Error / Permission Denied');
           console.warn('BracketForge: Failed to save tournament state to Firestore.', e);
         });
       }
@@ -1057,12 +1057,18 @@
     function renderRemoteState(data) {
       if (!data || !Array.isArray(data.categories) || data.categories.length === 0) return;
 
+      const focusedElement = document.activeElement;
+      const focusedId = focusedElement && focusedElement.id;
+      const focusedValue = focusedElement && typeof focusedElement.value === 'string' ? focusedElement.value : null;
+      const selectionStart = focusedElement && typeof focusedElement.selectionStart === 'number' ? focusedElement.selectionStart : null;
+      const selectionEnd = focusedElement && typeof focusedElement.selectionEnd === 'number' ? focusedElement.selectionEnd : null;
+
       categories = data.categories;
       const validActive = categories.find(c => c.id === data.activeCatId);
       activeCatId = validActive ? validActive.id : categories[0].id;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(getStatePayload()));
 
-      if (document.activeElement && document.activeElement.classList.contains('score-inp')) {
+      if (focusedElement && focusedElement.classList.contains('score-inp')) {
         updateVisibleStandings();
         return;
       }
@@ -1070,6 +1076,13 @@
       renderCatTabs();
       loadCatToSidebar();
       renderLivePreview();
+
+      const restoredElement = focusedId ? document.getElementById(focusedId) : null;
+      if (restoredElement && focusedValue !== null) {
+        restoredElement.value = focusedValue;
+        restoredElement.focus();
+        if (selectionStart !== null && selectionEnd !== null) restoredElement.setSelectionRange(selectionStart, selectionEnd);
+      }
     }
 
     function updateVisibleStandings() {
@@ -1098,13 +1111,13 @@
           });
         }
       }, error => {
-        setSyncStatus('Sync unavailable');
+        setSyncStatus('Sync Error / Permission Denied');
         console.warn('BracketForge: Firestore listener failed. Using local fallback.', error);
       });
     }
 
     window.addEventListener('bracketforge-firestore-ready', subscribeToCloudState);
-    subscribeToCloudState();
+    if (window.bracketForgeFirestore) subscribeToCloudState();
 
     function createCategoryState(name, type = 'single_elim') {
       return {
@@ -1399,7 +1412,7 @@
               ${group.teams.map((teamName, tIdx) => `
                 <div class="participant-row">
                   <span class="drag-handle">░░</span>
-                  <input type="text" class="participant-input" value="${escHTML(teamName)}"
+                  <input id="participant-${gIdx}-${tIdx}" type="text" class="participant-input" value="${escHTML(teamName)}"
                     ${cat.started ? 'disabled' : ''}
                     oninput="updateTeamName(${gIdx}, ${tIdx}, this.value)"
                     onfocus="if(this.value.startsWith('Team ')) this.select()">
@@ -1420,7 +1433,7 @@
             ${cat.flatTeams.map((teamName, tIdx) => `
               <div class="participant-row">
                 <span class="drag-handle">░░</span>
-                <input type="text" class="participant-input" value="${escHTML(teamName)}"
+                <input id="participant-0-${tIdx}" type="text" class="participant-input" value="${escHTML(teamName)}"
                   ${cat.started ? 'disabled' : ''}
                   oninput="updateTeamName(0, ${tIdx}, this.value)"
                   onfocus="if(this.value.startsWith('Team ')) this.select()">
