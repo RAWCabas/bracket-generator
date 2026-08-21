@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=yes">
   <meta name="description" content="BracketForge — Multi-Category Tournament & Bracket Generator with Live Preview, Custom Groupings, and Zoom.">
   <title>BracketForge — Multi-Category Tournament Generator</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -52,11 +52,33 @@
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; overflow: hidden; }
-    body { font-family: var(--font); background: var(--bg-body); color: var(--text); font-size: 13px; }
+    html, body { height: 100%; overflow-x: hidden; }
+    html { -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: var(--font);
+      background: var(--bg-body);
+      color: var(--text);
+      font-size: 13px;
+      overflow-y: auto;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    button, input, select, textarea {
+      font: inherit;
+      -webkit-tap-highlight-color: transparent;
+    }
+    input[type="number"] {
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
 
     /* ===== App Shell ===== */
-    .app { display: flex; flex-direction: column; height: 100vh; }
+    .app { display: flex; flex-direction: column; min-height: 100vh; }
 
     /* --- Top Bar --- */
     .topbar {
@@ -90,6 +112,7 @@
     .topbar-actions { display: flex; gap: 8px; align-items: center; }
     .btn-action {
       padding: 6px 14px;
+      min-height: 36px;
       font-family: var(--font);
       font-size: 12px;
       font-weight: 600;
@@ -101,9 +124,15 @@
       transition: var(--transition);
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 6px;
+      touch-action: manipulation;
     }
     .btn-action:hover { background: var(--bg-card-hover); border-color: var(--border-light); }
+    .btn-action:active {
+      transform: translateY(1px) scale(0.99);
+      filter: brightness(0.96);
+    }
     .btn-action.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
     .btn-action.primary:hover { background: var(--accent-hover); }
     .btn-action.danger { background: var(--red-dim); border-color: rgba(239, 68, 68, 0.4); color: var(--red); }
@@ -217,6 +246,22 @@
       background: var(--accent);
       border-radius: 0 2px 2px 0;
     }
+    .sidebar-toggle {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      min-height: 36px;
+      padding: 0 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg-card);
+      color: var(--text-white);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 700;
+      touch-action: manipulation;
+    }
+    .sidebar-toggle:hover { border-color: var(--border-light); }
 
     /* --- Sidebar Panel --- */
     .sidebar {
@@ -591,17 +636,20 @@
       color: var(--text-dim);
     }
     .match-slot .score-inp {
-      width: 36px;
+      width: 42px;
+      min-height: 36px;
       padding: 3px 4px;
       font-family: var(--font);
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 600;
       color: var(--text-white);
       background: var(--bg-input);
       border: 1px solid var(--border);
-      border-radius: 3px;
+      border-radius: 6px;
       text-align: center;
       outline: none;
+      touch-action: manipulation;
+      -webkit-appearance: none;
     }
     .match-slot .score-inp:focus { border-color: var(--border-focus); }
     .match-slot .score-inp:disabled { opacity: 0.3; cursor: not-allowed; }
@@ -622,7 +670,7 @@
 
     /* Round Robin Layout */
     .rr-layout { display: grid; gap: 20px; }
-    .rr-layout.multi { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+    .rr-layout.multi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .rr-pool-panel {
       background: var(--bg-card);
       border: 1px solid var(--border);
@@ -663,7 +711,21 @@
     /* Standings Table */
     .standings-wrap { margin-top: 14px; }
     .standings-label { font-size: 10px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
-    .standings-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .standings-scroll {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: rgba(18, 20, 25, 0.8);
+      padding: 4px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .standings-tbl {
+      width: 100%;
+      min-width: 300px;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
     .standings-tbl th {
       padding: 6px 8px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-dim);
       background: var(--bg-input); border-bottom: 1px solid var(--border);
@@ -704,6 +766,69 @@
     .playoff-area { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
     .playoff-title { text-align: center; font-size: 15px; font-weight: 800; color: var(--text-bright); margin-bottom: 16px; }
 
+    @media (max-width: 899px) {
+      .app-body {
+        flex-direction: column;
+      }
+      .icon-sidebar {
+        width: 100%;
+        height: auto;
+        flex-direction: row;
+        justify-content: space-between;
+        padding: 8px 12px;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+      .sidebar-toggle { display: flex; }
+      .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        max-height: 44vh;
+      }
+      .sidebar.mobile-collapsed { display: none; }
+      .rr-layout.multi {
+        grid-template-columns: 1fr;
+      }
+      .rr-match-grid {
+        grid-template-columns: 1fr;
+      }
+      .bracket-canvas {
+        padding: 16px 12px 76px;
+      }
+      .standings-scroll {
+        margin-bottom: 8px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .topbar {
+        padding: 0 10px;
+        gap: 8px;
+        min-height: 56px;
+      }
+      .brand {
+        font-size: 14px;
+      }
+      .topbar-title {
+        font-size: 11px;
+        letter-spacing: 0.02em;
+      }
+      .topbar-actions {
+        gap: 6px;
+      }
+      .btn-action {
+        padding: 7px 10px;
+        font-size: 10px;
+      }
+      .btn-action.primary {
+        display: none;
+      }
+      .btn-action.danger {
+        min-width: 112px;
+      }
+    }
+
     @keyframes shake {
       0%, 100% { transform: translateX(0); }
       20% { transform: translateX(-4px); }
@@ -722,8 +847,8 @@
       <div class="topbar-divider"></div>
       <div class="topbar-title" id="topbar-title">Tournament Generator</div>
       <div class="topbar-actions">
-        <button class="btn-action danger" onclick="resetAllTournamentData()" title="Clear all saved progress and reset state">🗑️ Reset Tournament</button>
-        <button class="btn-action primary" onclick="exportBracket()">💾 Save / Export</button>
+        <button class="btn-action danger" onclick="resetAllTournamentData()" title="Clear all saved progress and reset state">🗑️ Reset Data</button>
+        <button class="btn-action primary" onclick="exportBracket()">💾 Save</button>
       </div>
     </div>
 
@@ -736,12 +861,13 @@
     <div class="app-body">
       <!-- ===== NAVIGATION ICON BAR ===== -->
       <div class="icon-sidebar">
+        <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleMobileSidebar()" aria-expanded="true" aria-controls="main-sidebar">☰ Hide Sidebar</button>
         <button class="icon-btn active" id="tab-info" onclick="switchSidebarTab('info')" title="Bracket Settings">⚙</button>
         <button class="icon-btn" id="tab-teams" onclick="switchSidebarTab('teams')" title="Participants & Groupings">👥</button>
       </div>
 
       <!-- ===== MAIN SIDEBAR ===== -->
-      <div class="sidebar">
+      <div class="sidebar" id="main-sidebar">
         <!-- Settings Panel -->
         <div id="panel-info">
           <div class="sidebar-section">
@@ -1005,6 +1131,14 @@
       document.getElementById('panel-teams').style.display = tab === 'teams' ? 'block' : 'none';
       document.querySelectorAll('.icon-btn').forEach(b => b.classList.remove('active'));
       document.getElementById(`tab-${tab}`).classList.add('active');
+    }
+
+    function toggleMobileSidebar() {
+      const sidebar = document.getElementById('main-sidebar');
+      const toggle = document.getElementById('sidebar-toggle');
+      const isCollapsed = sidebar.classList.toggle('mobile-collapsed');
+      toggle.setAttribute('aria-expanded', String(!isCollapsed));
+      toggle.textContent = isCollapsed ? '☰ Show Sidebar' : '× Hide Sidebar';
     }
 
     function onSettingsChange() {
@@ -1366,13 +1500,13 @@
       return `
         <div class="match-slot ${w1 ? 'is-winner' : ''}">
           ${m.team1 ? `<span class="name">${escHTML(m.team1)}</span>` : '<span class="tbd">TBD</span>'}
-          <input type="number" min="0" class="score-inp" value="${m.s1 !== '' ? m.s1 : ''}"
+          <input type="number" min="0" inputmode="numeric" class="score-inp" value="${m.s1 !== '' ? m.s1 : ''}"
             ${canEdit ? '' : 'disabled'}
             oninput="handleTreeScore('${prefix}','${id}',1,this.value)">
         </div>
         <div class="match-slot ${w2 ? 'is-winner' : ''}">
           ${m.team2 ? `<span class="name">${escHTML(m.team2)}</span>` : '<span class="tbd">TBD</span>'}
-          <input type="number" min="0" class="score-inp" value="${m.s2 !== '' ? m.s2 : ''}"
+          <input type="number" min="0" inputmode="numeric" class="score-inp" value="${m.s2 !== '' ? m.s2 : ''}"
             ${canEdit ? '' : 'disabled'}
             oninput="handleTreeScore('${prefix}','${id}',2,this.value)">
         </div>`;
@@ -1618,13 +1752,13 @@
             card.innerHTML = `
               <div class="match-slot ${w1 ? 'is-winner' : ''}" id="${mid}_slot1">
                 <span class="name">${escHTML(m.team1)}</span>
-                <input type="number" min="0" class="score-inp" value="${stored.s1 !== '' ? stored.s1 : ''}"
+                <input type="number" min="0" inputmode="numeric" class="score-inp" value="${stored.s1 !== '' ? stored.s1 : ''}"
                   ${canEdit ? '' : 'disabled'}
                   oninput="handleRRScore('${mid}', 1, this.value, ${pIdx})">
               </div>
               <div class="match-slot ${w2 ? 'is-winner' : ''}" id="${mid}_slot2">
                 <span class="name">${escHTML(m.team2)}</span>
-                <input type="number" min="0" class="score-inp" value="${stored.s2 !== '' ? stored.s2 : ''}"
+                <input type="number" min="0" inputmode="numeric" class="score-inp" value="${stored.s2 !== '' ? stored.s2 : ''}"
                   ${canEdit ? '' : 'disabled'}
                   oninput="handleRRScore('${mid}', 2, this.value, ${pIdx})">
               </div>`;
@@ -1637,10 +1771,12 @@
         body.innerHTML += `
           <div class="standings-wrap">
             <div class="standings-label">${label} Standings</div>
-            <table class="standings-tbl" id="st-p${pIdx}">
-              <thead><tr><th>#</th><th>Team</th><th>W</th><th>L</th><th>Diff</th><th>Pts</th></tr></thead>
-              <tbody></tbody>
-            </table>
+            <div class="standings-scroll">
+              <table class="standings-tbl" id="st-p${pIdx}">
+                <thead><tr><th>#</th><th>Team</th><th>W</th><th>L</th><th>Diff</th><th>Pts</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
           </div>`;
 
         panel.appendChild(body);
