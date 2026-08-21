@@ -947,6 +947,31 @@
     </div>
   </div>
 
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getFirestore, doc, onSnapshot, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: 'AIzaSyA3f2JrqpFZtrdMeAQ1YnhOMJuXLIQ2JwM',
+      authDomain: 'bracket-generator-22838.firebaseapp.com',
+      projectId: 'bracket-generator-22838',
+      storageBucket: 'bracket-generator-22838.firebasestorage.app',
+      messagingSenderId: '367554523907',
+      appId: '1:367554523907:web:e4f2b01373f708d393ef36',
+      measurementId: 'G-PL8J8YLFWR'
+    };
+
+    const firebaseApp = initializeApp(firebaseConfig);
+    const db = getFirestore(firebaseApp);
+    window.bracketForgeFirestore = {
+      db,
+      tournamentRef: doc(db, 'tournaments', 'default_tournament'),
+      onSnapshot,
+      setDoc
+    };
+    window.dispatchEvent(new Event('bracketforge-firestore-ready'));
+  </script>
+
   <script>
     /* ================================================================
        MULTI-CATEGORY STATE MANAGEMENT & PERSISTENCE
@@ -954,16 +979,26 @@
     const STORAGE_KEY = 'bracketforge_tournament_state';
     let categories = [];
     let activeCatId = null;
+    let firestoreUnsubscribe = null;
+    let cloudStateLoaded = false;
+
+    function getStatePayload() {
+      return { categories, activeCatId };
+    }
 
     function saveState() {
+      const payload = getStatePayload();
       try {
-        const payload = {
-          categories: categories,
-          activeCatId: activeCatId
-        };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       } catch (e) {
         console.warn('BracketForge: Failed to save tournament state to localStorage.', e);
+      }
+
+      const cloud = window.bracketForgeFirestore;
+      if (cloud) {
+        cloud.setDoc(cloud.tournamentRef, payload).catch(e => {
+          console.warn('BracketForge: Failed to save tournament state to Firestore.', e);
+        });
       }
     }
 
@@ -998,6 +1033,52 @@
         initApp();
       }
     }
+
+    function renderRemoteState(data) {
+      if (!data || !Array.isArray(data.categories) || data.categories.length === 0) return;
+
+      categories = data.categories;
+      const validActive = categories.find(c => c.id === data.activeCatId);
+      activeCatId = validActive ? validActive.id : categories[0].id;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(getStatePayload()));
+
+      if (document.activeElement && document.activeElement.classList.contains('score-inp')) {
+        updateVisibleStandings();
+        return;
+      }
+
+      renderCatTabs();
+      loadCatToSidebar();
+      renderLivePreview();
+    }
+
+    function updateVisibleStandings() {
+      const cat = getActiveCat();
+      if (!cat || (cat.type !== 'round_robin' && cat.type !== 'round_robin_double' && cat.type !== 'group_stage')) return;
+
+      const groups = cat.type === 'round_robin'
+        ? [{ teams: cat.flatTeams.filter(p => p !== 'BYE') }]
+        : cat.groups;
+      groups.forEach((group, index) => updateRRStandings(cat, index, group.teams));
+    }
+
+    function subscribeToCloudState() {
+      if (firestoreUnsubscribe || !window.bracketForgeFirestore) return;
+
+      const { tournamentRef, onSnapshot } = window.bracketForgeFirestore;
+      firestoreUnsubscribe = onSnapshot(tournamentRef, snapshot => {
+        if (snapshot.exists()) {
+          cloudStateLoaded = true;
+          renderRemoteState(snapshot.data());
+        } else {
+          saveState();
+        }
+      }, error => {
+        console.warn('BracketForge: Firestore listener failed. Using local fallback.', error);
+      });
+    }
+
+    window.addEventListener('bracketforge-firestore-ready', subscribeToCloudState);
 
     function createCategoryState(name, type = 'single_elim') {
       return {
@@ -1500,13 +1581,13 @@
       return `
         <div class="match-slot ${w1 ? 'is-winner' : ''}">
           ${m.team1 ? `<span class="name">${escHTML(m.team1)}</span>` : '<span class="tbd">TBD</span>'}
-          <input type="number" min="0" inputmode="numeric" class="score-inp" value="${m.s1 !== '' ? m.s1 : ''}"
+          <input id="score-${prefix}-${id}-1" type="number" min="0" inputmode="numeric" class="score-inp" value="${m.s1 !== '' ? m.s1 : ''}"
             ${canEdit ? '' : 'disabled'}
             oninput="handleTreeScore('${prefix}','${id}',1,this.value)">
         </div>
         <div class="match-slot ${w2 ? 'is-winner' : ''}">
           ${m.team2 ? `<span class="name">${escHTML(m.team2)}</span>` : '<span class="tbd">TBD</span>'}
-          <input type="number" min="0" inputmode="numeric" class="score-inp" value="${m.s2 !== '' ? m.s2 : ''}"
+          <input id="score-${prefix}-${id}-2" type="number" min="0" inputmode="numeric" class="score-inp" value="${m.s2 !== '' ? m.s2 : ''}"
             ${canEdit ? '' : 'disabled'}
             oninput="handleTreeScore('${prefix}','${id}',2,this.value)">
         </div>`;
@@ -1515,6 +1596,9 @@
     function handleTreeScore(prefix, id, teamNum, val) {
       const cat = getActiveCat();
       if (!cat || !cat.started) return;
+      const focusedInput = document.activeElement;
+      const selectionStart = focusedInput && typeof focusedInput.selectionStart === 'number' ? focusedInput.selectionStart : null;
+      const selectionEnd = focusedInput && typeof focusedInput.selectionEnd === 'number' ? focusedInput.selectionEnd : null;
 
       if (prefix === 'se') {
         const [, rPart, mPart] = id.split('_');
@@ -1558,6 +1642,12 @@
       }
       saveState();
       renderLivePreview();
+
+      const restoredInput = document.getElementById(`score-${prefix}-${id}-${teamNum}`);
+      if (restoredInput && focusedInput && focusedInput.classList.contains('score-inp')) {
+        restoredInput.focus();
+        if (selectionStart !== null && selectionEnd !== null) restoredInput.setSelectionRange(selectionStart, selectionEnd);
+      }
     }
 
     function clearTreeDown(bracket, rIdx, mIdx) {
