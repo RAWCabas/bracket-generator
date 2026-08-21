@@ -109,6 +109,13 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .sync-status {
+      color: var(--text-dim);
+      font-size: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .sync-status.connected { color: var(--green); }
     .topbar-actions { display: flex; gap: 8px; align-items: center; }
     .btn-action {
       padding: 6px 14px;
@@ -846,6 +853,7 @@
       <div class="brand">Bracket<span>Forge</span></div>
       <div class="topbar-divider"></div>
       <div class="topbar-title" id="topbar-title">Tournament Generator</div>
+      <div class="sync-status" id="sync-status">Connecting...</div>
       <div class="topbar-actions">
         <button class="btn-action danger" onclick="resetAllTournamentData()" title="Clear all saved progress and reset state">🗑️ Reset Data</button>
         <button class="btn-action primary" onclick="exportBracket()">💾 Save</button>
@@ -982,6 +990,13 @@
     let firestoreUnsubscribe = null;
     let cloudStateLoaded = false;
 
+    function setSyncStatus(message, connected = false) {
+      const status = document.getElementById('sync-status');
+      if (!status) return;
+      status.textContent = message;
+      status.classList.toggle('connected', connected);
+    }
+
     function getStatePayload() {
       return { categories, activeCatId };
     }
@@ -996,10 +1011,14 @@
 
       const cloud = window.bracketForgeFirestore;
       if (cloud) {
-        cloud.setDoc(cloud.tournamentRef, payload).catch(e => {
+        return cloud.setDoc(cloud.tournamentRef, payload).then(() => {
+          setSyncStatus('Connected & Synced', true);
+        }).catch(e => {
+          setSyncStatus('Sync unavailable');
           console.warn('BracketForge: Failed to save tournament state to Firestore.', e);
         });
       }
+      return Promise.resolve();
     }
 
     function loadState() {
@@ -1030,6 +1049,7 @@
         clearSavedState();
         categories = [];
         activeCatId = null;
+        saveState();
         initApp();
       }
     }
@@ -1069,16 +1089,22 @@
       firestoreUnsubscribe = onSnapshot(tournamentRef, snapshot => {
         if (snapshot.exists()) {
           cloudStateLoaded = true;
+          setSyncStatus('Connected & Synced', true);
           renderRemoteState(snapshot.data());
         } else {
-          saveState();
+          saveState().then(() => {
+            cloudStateLoaded = true;
+            setSyncStatus('Connected & Synced', true);
+          });
         }
       }, error => {
+        setSyncStatus('Sync unavailable');
         console.warn('BracketForge: Firestore listener failed. Using local fallback.', error);
       });
     }
 
     window.addEventListener('bracketforge-firestore-ready', subscribeToCloudState);
+    subscribeToCloudState();
 
     function createCategoryState(name, type = 'single_elim') {
       return {
@@ -2059,6 +2085,34 @@
     function exportBracket() {
       alert('Bracket saved! You can also print or screenshot your bracket viewport.');
     }
+
+    function updateScore(mid, teamNum, val, pIdx) {
+      return handleRRScore(mid, teamNum, val, pIdx);
+    }
+
+    window.resetAllTournamentData = resetAllTournamentData;
+    window.exportBracket = exportBracket;
+    window.addCategory = addCategory;
+    window.switchCategory = switchCategory;
+    window.deleteCategory = deleteCategory;
+    window.toggleMobileSidebar = toggleMobileSidebar;
+    window.switchSidebarTab = switchSidebarTab;
+    window.onSettingsChange = onSettingsChange;
+    window.onFormatChange = onFormatChange;
+    window.startTournament = startTournament;
+    window.resetTournament = resetTournament;
+    window.shuffleTeams = shuffleTeams;
+    window.addParticipant = addParticipant;
+    window.updateTeamName = updateTeamName;
+    window.removeParticipant = removeParticipant;
+    window.addGroup = addGroup;
+    window.zoomOut = zoomOut;
+    window.zoomIn = zoomIn;
+    window.zoomFit = zoomFit;
+    window.handleTreeScore = handleTreeScore;
+    window.handleRRScore = handleRRScore;
+    window.updateScore = updateScore;
+    window.advancePlayoffs = advancePlayoffs;
 
     // Start App
     initApp();
