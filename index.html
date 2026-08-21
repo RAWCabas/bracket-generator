@@ -106,6 +106,8 @@
     .btn-action:hover { background: var(--bg-card-hover); border-color: var(--border-light); }
     .btn-action.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
     .btn-action.primary:hover { background: var(--accent-hover); }
+    .btn-action.danger { background: var(--red-dim); border-color: rgba(239, 68, 68, 0.4); color: var(--red); }
+    .btn-action.danger:hover { background: var(--red); border-color: var(--red); color: #fff; }
 
     /* --- Category Tabs Bar --- */
     .catbar {
@@ -720,6 +722,7 @@
       <div class="topbar-divider"></div>
       <div class="topbar-title" id="topbar-title">Tournament Generator</div>
       <div class="topbar-actions">
+        <button class="btn-action danger" onclick="resetAllTournamentData()" title="Clear all saved progress and reset state">🗑️ Reset Tournament</button>
         <button class="btn-action primary" onclick="exportBracket()">💾 Save / Export</button>
       </div>
     </div>
@@ -820,10 +823,55 @@
 
   <script>
     /* ================================================================
-       MULTI-CATEGORY STATE MANAGEMENT
+       MULTI-CATEGORY STATE MANAGEMENT & PERSISTENCE
        ================================================================ */
+    const STORAGE_KEY = 'bracketforge_tournament_state';
     let categories = [];
     let activeCatId = null;
+
+    function saveState() {
+      try {
+        const payload = {
+          categories: categories,
+          activeCatId: activeCatId
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      } catch (e) {
+        console.warn('BracketForge: Failed to save tournament state to localStorage.', e);
+      }
+    }
+
+    function loadState() {
+      try {
+        const dataStr = localStorage.getItem(STORAGE_KEY);
+        if (!dataStr) return null;
+        const data = JSON.parse(dataStr);
+        if (data && Array.isArray(data.categories) && data.categories.length > 0) {
+          return data;
+        }
+        return null;
+      } catch (e) {
+        console.warn('BracketForge: Corrupted or invalid localStorage state detected. Falling back to default.', e);
+        return null;
+      }
+    }
+
+    function clearSavedState() {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (e) {
+        console.warn('BracketForge: Failed to clear localStorage state.', e);
+      }
+    }
+
+    function resetAllTournamentData() {
+      if (confirm('Are you sure you want to reset all tournament data? This will clear all saved matches, teams, and categories.')) {
+        clearSavedState();
+        categories = [];
+        activeCatId = null;
+        initApp();
+      }
+    }
 
     function createCategoryState(name, type = 'single_elim') {
       return {
@@ -859,9 +907,18 @@
        INIT & CATEGORY TABS UI
        ================================================================ */
     function initApp() {
-      const initialCat = createCategoryState('Category 1', 'single_elim');
-      categories.push(initialCat);
-      activeCatId = initialCat.id;
+      const savedState = loadState();
+      if (savedState) {
+        categories = savedState.categories;
+        const validActive = categories.find(c => c.id === savedState.activeCatId);
+        activeCatId = validActive ? validActive.id : categories[0].id;
+      } else {
+        categories = [];
+        const initialCat = createCategoryState('Category 1', 'single_elim');
+        categories.push(initialCat);
+        activeCatId = initialCat.id;
+        saveState();
+      }
       renderCatTabs();
       loadCatToSidebar();
       renderLivePreview();
@@ -886,6 +943,7 @@
 
     function switchCategory(catId) {
       activeCatId = catId;
+      saveState();
       renderCatTabs();
       loadCatToSidebar();
       renderLivePreview();
@@ -895,6 +953,7 @@
       if (categories.length <= 1) return;
       categories = categories.filter(c => c.id !== catId);
       if (activeCatId === catId) activeCatId = categories[0].id;
+      saveState();
       renderCatTabs();
       loadCatToSidebar();
       renderLivePreview();
@@ -957,6 +1016,7 @@
       cat.desc = document.getElementById('inp-desc').value;
 
       document.getElementById('topbar-title').textContent = cat.name + (cat.sport ? ` — ${cat.sport}` : '');
+      saveState();
       renderCatTabs();
       renderLivePreview();
     }
@@ -971,6 +1031,7 @@
       cat.doubleElim = null;
       cat.groupStage = null;
 
+      saveState();
       renderParticipantsList();
       renderLivePreview();
     }
@@ -991,6 +1052,7 @@
         cat.flatTeams.push(`Team ${cat.flatTeams.length + 1}`);
       }
 
+      saveState();
       renderParticipantsList();
       renderLivePreview();
     }
@@ -1006,6 +1068,7 @@
         teams: [`Team ${getTotalTeamCount(cat) + 1}`, `Team ${getTotalTeamCount(cat) + 2}`]
       });
 
+      saveState();
       renderParticipantsList();
       renderLivePreview();
     }
@@ -1020,6 +1083,7 @@
         cat.flatTeams.splice(tIdx, 1);
       }
 
+      saveState();
       renderParticipantsList();
       renderLivePreview();
     }
@@ -1034,6 +1098,7 @@
         cat.flatTeams[tIdx] = name || `Team ${tIdx + 1}`;
       }
 
+      saveState();
       renderLivePreview();
     }
 
@@ -1062,6 +1127,7 @@
         }
       }
 
+      saveState();
       renderParticipantsList();
       renderLivePreview();
     }
@@ -1134,6 +1200,7 @@
       const canvas = document.getElementById('bracket-canvas');
       canvas.style.transform = `scale(${cat ? cat.zoom : 1})`;
       document.getElementById('zoom-lbl').textContent = Math.round((cat ? cat.zoom : 1) * 100) + '%';
+      saveState();
     }
     function zoomIn() { const cat = getActiveCat(); if (cat) applyZoom(cat.zoom + 0.1); }
     function zoomOut() { const cat = getActiveCat(); if (cat) applyZoom(cat.zoom - 0.1); }
@@ -1165,6 +1232,7 @@
       }
 
       cat.started = true;
+      saveState();
       loadCatToSidebar();
       renderCatTabs();
       renderLivePreview();
@@ -1181,6 +1249,7 @@
       cat.doubleElim = null;
       cat.groupStage = null;
 
+      saveState();
       loadCatToSidebar();
       renderCatTabs();
       renderLivePreview();
@@ -1244,6 +1313,7 @@
           }
         });
         cat.elimBracket = bracket;
+        saveState();
       }
 
       drawTreeBracket(cat, container, cat.elimBracket, 'se');
@@ -1352,6 +1422,7 @@
           if (prev !== match.winner) clearTreeDown(bracket, rIdx + 1, Math.floor(mIdx / 2));
         }
       }
+      saveState();
       renderLivePreview();
     }
 
@@ -1399,6 +1470,7 @@
 
         const grandFinal = [{ team1: null, team2: null, s1: '', s2: '', winner: null }];
         cat.doubleElim = { winners, losers, grandFinal };
+        saveState();
       }
 
       const de = cat.doubleElim;
@@ -1609,6 +1681,7 @@
       if (groups[pIdx]) {
         updateRRStandings(cat, pIdx, groups[pIdx].teams);
       }
+      saveState();
     }
 
     function updateRRStandings(cat, pIdx, poolTeams) {
@@ -1671,7 +1744,10 @@
        GROUP STAGE + KNOCKOUT
        ================================================================ */
     function renderGroupStage(cat, container) {
-      if (!cat.groupStage) cat.groupStage = { started: false, playoffBracket: null };
+      if (!cat.groupStage) {
+        cat.groupStage = { started: false, playoffBracket: null };
+        saveState();
+      }
 
       // Render Groups
       drawRoundRobinPools(cat, container, cat.groups);
@@ -1750,6 +1826,7 @@
 
       cat.groupStage.started = true;
       cat.groupStage.playoffBracket = bracket;
+      saveState();
       renderLivePreview();
     }
 
