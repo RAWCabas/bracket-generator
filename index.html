@@ -855,6 +855,7 @@
       <div class="topbar-title" id="topbar-title">Tournament Generator</div>
       <div class="sync-status" id="sync-status">Connecting...</div>
       <div class="topbar-actions">
+        <button class="btn-action" onclick="shareTournamentLink()" title="Copy tournament link to sync live on phone or share with others">🔗 Share Link</button>
         <button class="btn-action danger" onclick="resetAllTournamentData()" title="Clear all saved progress and reset state">🗑️ Reset Data</button>
         <button class="btn-action primary" onclick="exportBracket()">💾 Save</button>
       </div>
@@ -971,11 +972,24 @@
 
     const firebaseApp = initializeApp(firebaseConfig);
     const db = getFirestore(firebaseApp);
+
+    function getTournamentId() {
+      const params = new URLSearchParams(window.location.search);
+      const queryId = params.get('t') || params.get('id');
+      if (queryId) return queryId;
+      const hashId = window.location.hash ? window.location.hash.replace('#', '') : null;
+      if (hashId) return hashId;
+      return 'default_tournament';
+    }
+
+    const tournamentId = getTournamentId();
+
     window.bracketForgeFirestore = {
       db,
-      tournamentRef: doc(db, 'tournaments', 'default_tournament'),
+      tournamentRef: doc(db, 'tournaments', tournamentId),
       onSnapshot,
-      setDoc
+      setDoc,
+      tournamentId
     };
     window.dispatchEvent(new Event('bracketforge-firestore-ready'));
   </script>
@@ -989,6 +1003,8 @@
     let activeCatId = null;
     let firestoreUnsubscribe = null;
     let cloudStateLoaded = false;
+    let isCloudInitialized = false;
+    let lastLocalUpdateTimestamp = 0;
 
     function setSyncStatus(message, connected = false) {
       const status = document.getElementById('sync-status');
@@ -998,10 +1014,15 @@
     }
 
     function getStatePayload() {
-      return { categories, activeCatId };
+      return {
+        categories,
+        activeCatId,
+        updatedAt: lastLocalUpdateTimestamp || Date.now()
+      };
     }
 
-    function saveState() {
+    function saveState(isExplicitUserAction = false) {
+      lastLocalUpdateTimestamp = Date.now();
       const payload = getStatePayload();
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -1010,7 +1031,7 @@
       }
 
       const cloud = window.bracketForgeFirestore;
-      if (cloud) {
+      if (cloud && (cloudStateLoaded || isExplicitUserAction)) {
         return cloud.setDoc(cloud.tournamentRef, payload).then(() => {
           setSyncStatus('Connected & Synced', true);
         }).catch(e => {
@@ -1027,6 +1048,7 @@
         if (!dataStr) return null;
         const data = JSON.parse(dataStr);
         if (data && Array.isArray(data.categories) && data.categories.length > 0) {
+          lastLocalUpdateTimestamp = data.updatedAt || 0;
           return data;
         }
         return null;
@@ -1049,8 +1071,27 @@
         clearSavedState();
         categories = [];
         activeCatId = null;
-        saveState();
+        lastLocalUpdateTimestamp = Date.now();
+        saveState(true);
         initApp();
+      }
+    }
+
+    function shareTournamentLink() {
+      const tId = (window.bracketForgeFirestore && window.bracketForgeFirestore.tournamentId) || 'default_tournament';
+      let url = window.location.href;
+      if (!url.includes('t=' + tId) && !url.includes('id=' + tId)) {
+        const sep = url.includes('?') ? '&' : '?';
+        url = url.split('#')[0] + sep + 't=' + tId;
+      }
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(url).then(() => {
+          alert('Tournament link copied to clipboard! Open this link on your phone to sync live.');
+        }).catch(() => {
+          prompt('Copy this tournament link to share or open on your phone:', url);
+        });
+      } else {
+        prompt('Copy this tournament link to share or open on your phone:', url);
       }
     }
 
@@ -1066,9 +1107,13 @@
       categories = data.categories;
       const validActive = categories.find(c => c.id === data.activeCatId);
       activeCatId = validActive ? validActive.id : categories[0].id;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(getStatePayload()));
+      lastLocalUpdateTimestamp = data.updatedAt || Date.now();
 
-      if (focusedElement && focusedElement.classList.contains('score-inp')) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(getStatePayload()));
+      } catch (e) {}
+
+      if (focusedElement && (focusedElement.classList.contains('score-inp') || focusedElement.classList.contains('participant-input') || focusedElement.classList.contains('field-input'))) {
         updateVisibleStandings();
         return;
       }
@@ -1103,10 +1148,17 @@
         if (snapshot.exists()) {
           cloudStateLoaded = true;
           setSyncStatus('Connected & Synced', true);
-          renderRemoteState(snapshot.data());
+          const remoteData = snapshot.data();
+          const remoteUpdatedAt = remoteData.updatedAt || 0;
+
+          if (!isCloudInitialized || remoteUpdatedAt >= lastLocalUpdateTimestamp) {
+            isCloudInitialized = true;
+            renderRemoteState(remoteData);
+          }
         } else {
-          saveState().then(() => {
-            cloudStateLoaded = true;
+          cloudStateLoaded = true;
+          isCloudInitialized = true;
+          saveState(true).then(() => {
             setSyncStatus('Connected & Synced', true);
           });
         }
@@ -1158,12 +1210,14 @@
         categories = savedState.categories;
         const validActive = categories.find(c => c.id === savedState.activeCatId);
         activeCatId = validActive ? validActive.id : categories[0].id;
+        lastLocalUpdateTimestamp = savedState.updatedAt || 0;
       } else {
         categories = [];
         const initialCat = createCategoryState('Category 1', 'single_elim');
         categories.push(initialCat);
         activeCatId = initialCat.id;
-        saveState();
+        lastLocalUpdateTimestamp = 0;
+        // Do NOT call saveState() here so cold device loads don't wipe remote Firestore data!
       }
       renderCatTabs();
       loadCatToSidebar();
@@ -2105,6 +2159,7 @@
 
     window.resetAllTournamentData = resetAllTournamentData;
     window.exportBracket = exportBracket;
+    window.shareTournamentLink = shareTournamentLink;
     window.addCategory = addCategory;
     window.switchCategory = switchCategory;
     window.deleteCategory = deleteCategory;
